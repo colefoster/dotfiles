@@ -1,20 +1,14 @@
 "$schema" = 'https://starship.rs/config-schema.json'
 
 command_timeout = 1000
+palette = 'catppuccin_mocha'
 
 format = """
-$env_var\
+${env_var.STARSHIP_HOST_TAG}\
 $directory\
 $git_branch\
 $git_status\
 $character"""
-
-[env_var.STARSHIP_HOST_TAG]
-format = "[$env_value]($style) "
-style = "bold peach"
-default = ""
-
-palette = 'catppuccin_mocha'
 
 [directory]
 style = "bold lavender"
@@ -35,6 +29,11 @@ format = "[$all_status$ahead_behind]($style) "
 success_symbol = '[>](bold green)'
 error_symbol = '[>](bold red)'
 vimcmd_symbol = '[<](bold green)'
+
+[env_var.STARSHIP_HOST_TAG]
+format = "[$env_value]($style) "
+style = "bold peach"
+default = ""
 
 [palettes.catppuccin_mocha]
 rosewater = "#f5e0dc"
