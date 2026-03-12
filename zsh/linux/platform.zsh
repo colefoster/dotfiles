@@ -58,6 +58,11 @@ alias sclf='sudo journalctl -fu'
 # ──────────────────────────────────────────────
 # Linux Tool Managers
 # ──────────────────────────────────────────────
-if command -v mise &>/dev/null; then eval "$(mise activate zsh)"; fi
+if command -v mise &>/dev/null; then
+  eval "$(mise activate zsh)"
+  # Trigger hook immediately so mise-managed tools are on PATH
+  # before common/*.zsh runs command -v checks
+  eval "$(mise hook-env -s zsh 2>/dev/null)"
+fi
 if command -v direnv &>/dev/null; then eval "$(direnv hook zsh)"; fi
 if command -v starship &>/dev/null; then eval "$(starship init zsh)"; fi
