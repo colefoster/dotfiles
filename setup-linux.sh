@@ -42,7 +42,7 @@ mise use -g \
   delta \
   dust \
   duf \
-  procs \
+  aqua:dalance/procs \
   sd \
   difftastic \
   curlie \
@@ -51,9 +51,9 @@ mise use -g \
   lazygit \
   lazydocker \
   hyperfine \
-  tokei \
+  aqua:XAMPPRocky/tokei \
   watchexec \
-  bandwhich \
+  aqua:imsnif/bandwhich \
   mkcert \
   btop \
   ctop \
