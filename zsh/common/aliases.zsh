@@ -13,51 +13,57 @@ alias week='date +%V'
 alias timer='echo "Timer started. Stop with Ctrl-D." && date && time command cat && date'
 
 # ──────────────────────────────────────────────
-# Modern CLI Replacements
+# Modern CLI Replacements (only alias if installed)
 # ──────────────────────────────────────────────
 
 # eza (ls)
-alias ls='eza'
-alias ll='eza -la --git --icons'
-alias lt='eza -T --level=2 --icons'
-alias lta='eza -Ta --level=2 --icons'
+if command -v eza &>/dev/null; then
+  alias ls='eza'
+  alias ll='eza -la --git --icons'
+  alias lt='eza -T --level=2 --icons'
+  alias lta='eza -Ta --level=2 --icons'
+fi
 
 # bat (cat)
-alias cat='bat --paging=never'
-alias catp='bat --plain'
+if command -v bat &>/dev/null; then
+  alias cat='bat --paging=never'
+  alias catp='bat --plain'
+fi
 
 # ripgrep (grep)
-alias rg='rg --smart-case'
-alias rgf='rg --files | rg'
+if command -v rg &>/dev/null; then
+  alias rg='rg --smart-case'
+  alias rgf='rg --files | rg'
+fi
 
 # fd (find)
-alias find='fd'
+if command -v fd &>/dev/null; then alias find='fd'; fi
 
 # zoxide (cd)
-alias cd='z'
+if command -v zoxide &>/dev/null; then alias cd='z'; fi
 
 # dust (du) / duf (df)
-alias du='dust'
-alias df='duf'
+if command -v dust &>/dev/null; then alias du='dust'; fi
+if command -v duf &>/dev/null; then alias df='duf'; fi
 
 # procs (ps)
-alias ps='procs'
+if command -v procs &>/dev/null; then alias ps='procs'; fi
 
 # sd (sed)
-alias sed='sd'
+if command -v sd &>/dev/null; then alias sed='sd'; fi
 
 # difftastic (diff)
-alias diff='difft'
+if command -v difft &>/dev/null; then alias diff='difft'; fi
 
 # lazygit / lazydocker
-alias lg='lazygit'
-alias lzd='lazydocker'
+if command -v lazygit &>/dev/null; then alias lg='lazygit'; fi
+if command -v lazydocker &>/dev/null; then alias lzd='lazydocker'; fi
 
 # glow (markdown)
-alias md='glow'
+if command -v glow &>/dev/null; then alias md='glow'; fi
 
 # curlie (curl)
-alias curl='curlie'
+if command -v curlie &>/dev/null; then alias curl='curlie'; fi
 
 # ──────────────────────────────────────────────
 # fzf Workflows
@@ -164,8 +170,8 @@ alias dcp='docker compose pull'
 alias dcb='docker compose build'
 alias dprune='docker system prune -af'
 alias dvol='docker volume ls'
-alias dtop='ctop'
-alias ddive='dive'
+if command -v ctop &>/dev/null; then alias dtop='ctop'; fi
+if command -v dive &>/dev/null; then alias ddive='dive'; fi
 
 # ──────────────────────────────────────────────
 # pnpm / bun
@@ -182,24 +188,23 @@ alias br='bun run'
 # ──────────────────────────────────────────────
 # Processes & System
 # ──────────────────────────────────────────────
-alias psg='procs --search'
+if command -v procs &>/dev/null; then alias psg='procs --search'; fi
 alias kill9='kill -9'
-alias loc='tokei'
-alias bench='hyperfine'
+if command -v tokei &>/dev/null; then alias loc='tokei'; fi
+if command -v hyperfine &>/dev/null; then alias bench='hyperfine'; fi
 
 # ──────────────────────────────────────────────
 # Dev Tools
 # ──────────────────────────────────────────────
-alias certs='mkcert -install'
-alias watch='watchexec'
+if command -v mkcert &>/dev/null; then alias certs='mkcert -install'; fi
+if command -v watchexec &>/dev/null; then alias watch='watchexec'; fi
 
 # ──────────────────────────────────────────────
 # Networking
 # ──────────────────────────────────────────────
 alias ping='ping -c 5'
-alias headers='curlie -I'
-alias wget='curlie -O'
-alias dig='doggo'
+if command -v curlie &>/dev/null; then alias headers='curlie -I'; alias wget='curlie -O'; fi
+if command -v doggo &>/dev/null; then alias dig='doggo'; fi
 
 # ──────────────────────────────────────────────
 # Python
@@ -228,5 +233,4 @@ alias tarl='tar -tzvf'
 # ──────────────────────────────────────────────
 # neovim
 # ──────────────────────────────────────────────
-alias vim="nvim"
-alias vi="nvim"
+if command -v nvim &>/dev/null; then alias vim="nvim"; alias vi="nvim"; fi
