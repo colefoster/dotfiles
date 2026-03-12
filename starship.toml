@@ -3,10 +3,16 @@
 command_timeout = 1000
 
 format = """
+$env_var\
 $directory\
 $git_branch\
 $git_status\
 $character"""
+
+[env_var.STARSHIP_HOST_TAG]
+format = "[$env_value]($style) "
+style = "bold peach"
+default = ""
 
 palette = 'catppuccin_mocha'
 
