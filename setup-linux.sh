@@ -66,6 +66,10 @@ mise use -g \
   dive \
   direnv
 
+# Generate shims so tools are on PATH immediately
+echo "==> Generating mise shims..."
+mise reshim
+
 # ──────────────────────────────────────────────
 # Cargo-only tools (no prebuilt binaries available)
 # ──────────────────────────────────────────────
