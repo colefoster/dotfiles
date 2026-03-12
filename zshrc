@@ -4,6 +4,9 @@
 
 DOTFILES_DIR="$HOME/dotfiles"
 
+# PATH (must be before platform.zsh so mise and other tools are found)
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
+
 # Detect platform
 case "$(uname -s)" in
   Darwin) DOTFILES_PLATFORM="macos" ;;
@@ -21,6 +24,3 @@ done
 
 # Load machine-specific local config (gitignored)
 [[ -f "$DOTFILES_DIR/zsh/$DOTFILES_PLATFORM/local.zsh" ]] && source "$DOTFILES_DIR/zsh/$DOTFILES_PLATFORM/local.zsh"
-
-# PATH
-export PATH="$HOME/.local/bin:$PATH"
