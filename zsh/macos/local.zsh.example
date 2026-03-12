@@ -1,0 +1,31 @@
+# ──────────────────────────────────────────────
+# Machine-specific macOS config
+# Copy to local.zsh and customize per machine
+# ──────────────────────────────────────────────
+
+# Herd PHP (if using Laravel Herd)
+# export HERD_PHP_84_INI_SCAN_DIR="/Users/you/Library/Application Support/Herd/config/php/84/"
+# export PATH="/Users/you/Library/Application Support/Herd/bin/":$PATH
+
+# bun
+# export BUN_INSTALL="$HOME/.bun"
+# export PATH="$BUN_INSTALL/bin:$PATH"
+# [ -s "$BUN_INSTALL/_bun" ] && source "$BUN_INSTALL/_bun"
+
+# pyenv
+# export PYENV_ROOT="$HOME/.pyenv"
+# [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv init --path)"
+# eval "$(pyenv virtualenv-init -)"
+
+# cargo
+# export PATH="$HOME/.cargo/bin:$PATH"
+
+# JetBrains Toolbox
+# export PATH="$PATH:/Users/you/Library/Application Support/JetBrains/Toolbox/scripts"
+
+# OrbStack
+# source ~/.orbstack/shell/init.zsh 2>/dev/null || :
+
+# SSH aliases
+# alias myserver="ssh user@host"

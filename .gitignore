@@ -1,0 +1,14 @@
+# Machine-specific local configs (contain paths, IPs, secrets)
+zsh/macos/local.zsh
+zsh/linux/local.zsh
+
+# Swap / backup files
+*.swp
+*.swo
+*.bak
+
+# Original config backup (contains SSH IPs, local paths)
+zsh-backup/
+
+# macOS
+.DS_Store

@@ -1,0 +1,19 @@
+# ──────────────────────────────────────────────
+# Machine-specific Linux config
+# Copy to local.zsh and customize per machine
+# ──────────────────────────────────────────────
+
+# SSH aliases (add your own)
+# alias myserver="ssh user@host"
+
+# bun
+# export BUN_INSTALL="$HOME/.bun"
+# export PATH="$BUN_INSTALL/bin:$PATH"
+
+# cargo
+# export PATH="$HOME/.cargo/bin:$PATH"
+
+# pyenv
+# export PYENV_ROOT="$HOME/.pyenv"
+# [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv init --path)"
