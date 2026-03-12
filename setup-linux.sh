@@ -20,6 +20,13 @@ sudo apt install -y \
   zsh
 
 # ──────────────────────────────────────────────
+# Install Rust (needed for cargo-based tools like tokei)
+# ──────────────────────────────────────────────
+echo "==> Installing Rust..."
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+
+# ──────────────────────────────────────────────
 # Install mise (manages everything else)
 # ──────────────────────────────────────────────
 echo "==> Installing mise..."
@@ -51,7 +58,6 @@ mise use -g \
   lazygit \
   lazydocker \
   hyperfine \
-  aqua:XAMPPRocky/tokei \
   watchexec \
   aqua:imsnif/bandwhich \
   mkcert \
@@ -59,6 +65,12 @@ mise use -g \
   ctop \
   dive \
   direnv
+
+# ──────────────────────────────────────────────
+# Cargo-only tools (no prebuilt binaries available)
+# ──────────────────────────────────────────────
+echo "==> Installing cargo tools..."
+cargo install tokei --locked
 
 # ──────────────────────────────────────────────
 # Done
