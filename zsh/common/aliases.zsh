@@ -205,6 +205,7 @@ if command -v watchexec &>/dev/null; then alias watch='watchexec'; fi
 alias ping='ping -c 5'
 if command -v curlie &>/dev/null; then alias headers='curlie -I'; alias wget='curlie -O'; fi
 if command -v doggo &>/dev/null; then alias dig='doggo'; fi
+alias tplink="$HOME/dev/tplink-app/.venv/bin/netaudit"
 
 # ──────────────────────────────────────────────
 # Python
