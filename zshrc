@@ -24,3 +24,18 @@ done
 
 # Load machine-specific local config (gitignored)
 [[ -f "$DOTFILES_DIR/zsh/$DOTFILES_PLATFORM/local.zsh" ]] && source "$DOTFILES_DIR/zsh/$DOTFILES_PLATFORM/local.zsh"
+
+# Added by Antigravity
+export PATH="/Users/cole/.antigravity/antigravity/bin:$PATH"
+
+
+# Herd injected PHP 8.4 configuration.
+export HERD_PHP_84_INI_SCAN_DIR="/Users/cole/Library/Application Support/Herd/config/php/84/"
+
+
+# Herd injected PHP 8.5 configuration.
+export HERD_PHP_85_INI_SCAN_DIR="/Users/cole/Library/Application Support/Herd/config/php/85/"
+
+# zoxide must be initialized last
+export _ZO_DOCTOR=0
+if command -v zoxide &>/dev/null; then eval "$(zoxide init zsh)"; fi
