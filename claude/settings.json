@@ -1,0 +1,73 @@
+{
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(pnpm *)",
+      "Bash(bun *)",
+      "Bash(ls *)",
+      "Bash(which *)",
+      "Bash(pwd)",
+      "Bash(cd *)",
+      "Bash(cat *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(rm *)",
+      "Bash(chmod *)",
+      "Bash(ln *)",
+      "Bash(open *)",
+      "Bash(docker *)",
+      "Bash(docker-compose *)",
+      "Bash(ssh *)",
+      "Bash(gh *)",
+      "Bash(composer *)",
+      "Bash(php *)",
+      "Bash(python3 *)",
+      "Bash(pip3 *)",
+      "Bash(brew *)",
+      "Bash(curl *)",
+      "Bash(jq *)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash(~/.claude/scripts/edit-claude-file *)",
+      "mcp__playwright__*"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/auto-push.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "clangd-lsp@claude-plugins-official": true
+  },
+  "viewMode": "focus",
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "autoScrollEnabled": false,
+  "agentPushNotifEnabled": true
+}

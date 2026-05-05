@@ -7,6 +7,9 @@ export DOTFILES_OPEN_CMD="open"
 export DOTFILES_COPY_CMD="pbcopy"
 export DOTFILES_PASTE_CMD="pbpaste"
 
+# Suppress macOS resource-fork sidecar files (._foo) when using cp/tar/scp.
+export COPYFILE_DISABLE=1
+
 # Homebrew completions (must be before compinit)
 FPATH="/opt/homebrew/share/zsh/site-functions:${FPATH}"
 autoload -Uz compinit && compinit

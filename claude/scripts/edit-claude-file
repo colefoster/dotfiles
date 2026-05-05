@@ -1,0 +1,38 @@
+#!/bin/bash
+# Proxy script for editing Claude config files (CLAUDE.md, settings, etc.)
+# Usage:
+#   edit-claude-file write <path> <content>    — overwrite file with content
+#   edit-claude-file append <path> <content>   — append content to file
+#   edit-claude-file replace <path> <old> <new> — replace first occurrence of old with new
+
+set -euo pipefail
+
+ACTION="${1:?Usage: edit-claude-file <write|append|replace> <path> [args...]}"
+FILE="${2:?Missing file path}"
+
+case "$ACTION" in
+  write)
+    CONTENT="${3:?Missing content}"
+    printf '%s' "$CONTENT" > "$FILE"
+    echo "Wrote $(wc -c < "$FILE" | tr -d ' ') bytes to $FILE"
+    ;;
+  append)
+    CONTENT="${3:?Missing content}"
+    printf '%s' "$CONTENT" >> "$FILE"
+    echo "Appended to $FILE"
+    ;;
+  replace)
+    OLD="${3:?Missing old string}"
+    NEW="${4:?Missing new string}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i '' "s|${OLD}|${NEW}|g" "$FILE"
+    else
+      sed -i "s|${OLD}|${NEW}|g" "$FILE"
+    fi
+    echo "Replaced in $FILE"
+    ;;
+  *)
+    echo "Unknown action: $ACTION" >&2
+    exit 1
+    ;;
+esac

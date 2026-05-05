@@ -37,6 +37,17 @@ link "$DOTFILES_DIR/zshrc" "$HOME/.zshrc"
 mkdir -p "$HOME/.config"
 link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
 
+# Claude Code
+mkdir -p "$HOME/.claude"
+link "$DOTFILES_DIR/claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+link "$DOTFILES_DIR/claude/settings.json" "$HOME/.claude/settings.json"
+link "$DOTFILES_DIR/claude/settings.local.json" "$HOME/.claude/settings.local.json"
+link "$DOTFILES_DIR/claude/statusline.sh" "$HOME/.claude/statusline.sh"
+link "$DOTFILES_DIR/claude/agents" "$HOME/.claude/agents"
+link "$DOTFILES_DIR/claude/scripts" "$HOME/.claude/scripts"
+link "$DOTFILES_DIR/claude/skills" "$HOME/.claude/skills"
+link "$DOTFILES_DIR/claude/hooks" "$HOME/.claude/hooks"
+
 # Create local.zsh from example if it doesn't exist
 if [[ ! -f "$DOTFILES_DIR/zsh/$PLATFORM/local.zsh" ]]; then
   if [[ -f "$DOTFILES_DIR/zsh/$PLATFORM/local.zsh.example" ]]; then
