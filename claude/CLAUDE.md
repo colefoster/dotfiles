@@ -34,6 +34,8 @@ Default to spawning a subagent for anything that would dump significant tokens i
 
 Cole skims. Write for a reader who is glancing, not reading.
 
+**Be extremely concise. Sacrifice grammar for the sake of concision.**
+
 - **Prefer bullets over prose.** Default to lists. Only use paragraphs when the idea genuinely doesn't decompose.
 - **Surface the action.** If there's something Cole needs to *do* (run a command, make a choice, provide input, restart something), put it under a **bold heading** or lead with **bold text** — never bury it inside a paragraph.
 - **Bold the load-bearing words** in any sentence that must be read. One or two phrases per sentence, not whole lines.
