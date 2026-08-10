@@ -10,9 +10,9 @@
 
 Default to spawning a subagent for anything that would dump significant tokens into the main session: codebase exploration, multi-file reads, grep sweeps, web research, log digging. Use **Explore** for targeted lookups ("where is X defined", "find files matching Y"), **general-purpose** for multi-step research, **Plan** for design work. The goal is keeping raw tool output out of the main context window so the session stays responsive over long tasks.
 
-**Inline is fine for:** a single targeted Read of a known file, a one-line Bash command, an Edit you already know how to make. Anything beyond ~2 file reads or 1 grep — delegate.
+**Inline is fine** for work that won't flood the session — targeted reads, a quick grep, edits you already know how to make. Delegate when a task would genuinely dump a lot of raw tool output into the main context, or when it's a self-contained multi-step chase worth running in parallel. Use judgment, not a hard file-count.
 
-**Prefer Sonnet subagents to save tokens.** When a delegated task is mechanical or well-scoped enough that Sonnet can do it reliably — targeted searches, file lookups, grep sweeps, straightforward research, log digging — spawn the subagent on Sonnet (`model: "sonnet"`) rather than defaulting to Opus. Reserve Opus subagents for work that genuinely needs deeper reasoning (complex design, tricky debugging, nuanced multi-step judgment). The point is to keep the cheaper model doing the heavy-token grunt work.
+**Sonnet is a fine default for mechanical delegated work** to save cost — grep sweeps, file lookups, straightforward research, log digging. Reach for a stronger model when the subagent needs real reasoning (complex design, tricky debugging, nuanced judgment). The quality gap is small now, so don't agonize over the pick.
 
 ## MCPs
 
