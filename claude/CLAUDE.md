@@ -17,6 +17,18 @@ Standing authorization: **commit finished work without asking.** Don't end a tur
 - Only stage what your work touched — leave unrelated dirty files alone.
 - Secrets, credentials, or large binaries staged by accident: stop and flag, don't commit.
 
+## Delegating to Codex / GPT-5.6 Sol
+
+The official `codex@openai-codex` plugin is installed (user scope) and authed against Cole's ChatGPT sub — no API key, no proxy. Use it when a second, non-Claude opinion is worth having.
+
+- `/codex:rescue [--model <m>] [--effort <level>] <what to investigate>` — general delegation to a Codex subagent. The catch-all.
+- `/codex:review`, `/codex:adversarial-review` — Codex critiques a diff. Good before shipping something risky.
+- `/codex:status`, `/codex:result`, `/codex:cancel` — manage background runs.
+
+Sol runs bill against the sub and burn tokens fast at high effort — scope delegated work tightly rather than handing over the whole task.
+
+Claude Code cannot run Sol as its *own* model (`--model gpt-5.6-sol` is rejected); the plugin's agent-to-agent handoff is the supported path.
+
 ## Code changes — minimal, not gold-plated
 
 Gen-5 models over-build by default. Counter it:
