@@ -41,6 +41,6 @@ Your job is to generate genuinely interesting, buildable project ideas. Not gene
 - Over-scoped ideas that would take months before being usable
 
 ## Web research tips
-- Search for "underserved developer tools 2026", "cool APIs", "indie hacker ideas", niche subreddits
+- Search for "underserved developer tools" (append the current year), "cool APIs", "indie hacker ideas", niche subreddits
 - Look at Show HN posts for inspiration on what solo devs are shipping
 - Check if similar things exist — if they do, find the angle that's missing

@@ -6,6 +6,14 @@
 - When troubleshooting, investigate fully before reporting back. Don't stop at the first finding — follow the chain to the root cause and fix it.
 - If a task involves multiple steps you're capable of doing, do them all. Don't ask for permission at each step.
 
+## Subagents — protect the main context
+
+Default to spawning a subagent for anything that would dump significant tokens into the main session: codebase exploration, multi-file reads, grep sweeps, web research, log digging. Use **Explore** for targeted lookups ("where is X defined", "find files matching Y"), **general-purpose** for multi-step research, **Plan** for design work. The goal is keeping raw tool output out of the main context window so the session stays responsive over long tasks.
+
+**Inline is fine for:** a single targeted Read of a known file, a one-line Bash command, an Edit you already know how to make. Anything beyond ~2 file reads or 1 grep — delegate.
+
+**Prefer Sonnet subagents to save tokens.** When a delegated task is mechanical or well-scoped enough that Sonnet can do it reliably — targeted searches, file lookups, grep sweeps, straightforward research, log digging — spawn the subagent on Sonnet (`model: "sonnet"`) rather than defaulting to Opus. Reserve Opus subagents for work that genuinely needs deeper reasoning (complex design, tricky debugging, nuanced multi-step judgment). The point is to keep the cheaper model doing the heavy-token grunt work.
+
 ## MCPs
 
 - **github** MCP runs via Docker (`ghcr.io/github/github-mcp-server`). If it fails to connect, the first thing to check is whether OrbStack/Docker daemon is running (`docker ps`). Start OrbStack, then restart Claude Code.
@@ -70,22 +78,6 @@ curl -sX PATCH "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}
 
 ## Skills
 
-When a task clearly fits one of the installed `mp-` skills (from mattpocock/skills), proactively suggest using it. The available skills are:
+The full set of available skills is surfaced each session by the harness — check that list rather than relying on a hardcoded roster here. When a task clearly fits one, proactively suggest or invoke it.
 
-- `/mp-write-a-prd` — Create a PRD through interview + codebase exploration, filed as GitHub issue
-- `/mp-prd-to-plan` — Turn a PRD into a phased implementation plan with tracer-bullet slices
-- `/mp-prd-to-issues` — Break a PRD into independently-grabbable GitHub issues
-- `/mp-grill-me` — Stress-test a plan/design by interviewing relentlessly
-- `/mp-design-an-interface` — Generate multiple radically different interface designs via parallel agents
-- `/mp-request-refactor-plan` — Plan a refactor with tiny safe commits, filed as GitHub issue
-- `/mp-tdd` — Test-driven development with red-green-refactor loop
-- `/mp-triage-issue` — Triage a bug, find root cause, create GitHub issue with TDD fix plan
-- `/mp-improve-codebase-architecture` — Find architectural improvement opportunities
-- `/mp-migrate-to-shoehorn` — Migrate test `as` assertions to @total-typescript/shoehorn
-- `/mp-scaffold-exercises` — Create exercise directory structures for courses
-- `/mp-setup-pre-commit` — Set up Husky pre-commit hooks with lint-staged
-- `/mp-git-guardrails-claude-code` — Block dangerous git commands via hooks
-- `/mp-write-a-skill` — Create new agent skills with proper structure
-- `/mp-edit-article` — Edit/improve article drafts
-- `/mp-ubiquitous-language` — Extract DDD-style glossary from conversation
-- `/mp-obsidian-vault` — Manage Obsidian vault notes with wikilinks
+The `mattpocock-skills` plugin is installed and worth reaching for: `tdd` (red-green-refactor), `diagnosing-bugs`, `research` (delegate reading legwork to a background agent), `codebase-design` / `domain-modeling` (deep-module design), `code-review`, `grilling` (stress-test a plan by interviewing relentlessly), `wizard`, `writing-for-agents` (use when editing skills or CLAUDE.md/AGENTS.md).
