@@ -6,6 +6,14 @@
 - When troubleshooting, investigate fully before reporting back. Don't stop at the first finding — follow the chain to the root cause and fix it.
 - If a task involves multiple steps you're capable of doing, do them all. Don't ask for permission at each step.
 
+## Code changes — minimal, not gold-plated
+
+Gen-5 models over-build by default. Counter it:
+
+- Default to the **smallest change that fully solves the request.** Don't refactor, rename, or "improve" adjacent code while you're in there.
+- **Mention** unrelated issues you spot; don't fix them unasked.
+- Comment only non-obvious **why** — decisions, constraints, gotchas. Never narrate **what** the code plainly does.
+
 ## Subagents — protect the main context
 
 Default to spawning a subagent for anything that would dump significant tokens into the main session: codebase exploration, multi-file reads, grep sweeps, web research, log digging. Use **Explore** for targeted lookups ("where is X defined", "find files matching Y"), **general-purpose** for multi-step research, **Plan** for design work. The goal is keeping raw tool output out of the main context window so the session stays responsive over long tasks.
@@ -29,7 +37,7 @@ Cole skims. Write for a reader who is glancing, not reading.
 - **Prefer bullets over prose.** Default to lists. Only use paragraphs when the idea genuinely doesn't decompose.
 - **Surface the action.** If there's something Cole needs to *do* (run a command, make a choice, provide input, restart something), put it under a **bold heading** or lead with **bold text** — never bury it inside a paragraph.
 - **Bold the load-bearing words** in any sentence that must be read. One or two phrases per sentence, not whole lines.
-- **Lead with the answer.** Result first, explanation second. No throat-clearing ("Great question!", "Let me explain...").
+- **Lead with the answer.** Result first, explanation second. No throat-clearing ("Great question!", "Let me explain..."). Don't restate the request or pre-narrate what you're about to do.
 - **Short sentences.** If a sentence runs past ~20 words, split it or cut it.
 - **Use structure to show priority.** Headings for top-level chunks, bullets for items, code blocks for commands — not walls of text where everything looks equal.
 - **Cut the closing summary** unless the user asked for one. The work is the work; no need to recap.
