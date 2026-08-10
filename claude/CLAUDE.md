@@ -14,6 +14,8 @@ Default to spawning a subagent for anything that would dump significant tokens i
 
 **Sonnet is a fine default for mechanical delegated work** to save cost — grep sweeps, file lookups, straightforward research, log digging. Reach for a stronger model when the subagent needs real reasoning (complex design, tricky debugging, nuanced judgment). The quality gap is small now, so don't agonize over the pick.
 
+**Fan-out sweet spot is 3–5 concurrent subagents.** Past that, coordination and merge overhead outweighs the parallelism.
+
 ## MCPs
 
 - **github** MCP runs via Docker (`ghcr.io/github/github-mcp-server`). If it fails to connect, the first thing to check is whether OrbStack/Docker daemon is running (`docker ps`). Start OrbStack, then restart Claude Code.
@@ -52,29 +54,7 @@ The user may refer to machines by name — match to the table below.
 
 ## Cloudflare Developer Mode
 
-Whenever you're iterating on a deployed asset behind a Cloudflare-proxied domain (`colefoster.ca`, `fostered.dev`, `emilyrank.com`, or any other zone in Cole's account), **enable Cloudflare Development Mode programmatically** before/while pushing changes. It disables the edge cache for **3 hours** so your edits show up immediately on a hard reload instead of 5–30 min later.
-
-`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `CLOUDFLARE_ZONE_ID` are exported from **`~/dotfiles/zsh/macos/local.zsh`** (gitignored), so they're already on `$PATH` for any interactive shell. The same file defines a `cfdev` helper:
-
-```bash
-cfdev on               # enable for $CLOUDFLARE_ZONE_ID (default colefoster.ca)
-cfdev off              # disable
-cfdev on fostered.dev  # look up zone by domain, then enable
-```
-
-Use it directly. If you need raw API access (e.g. inside a script that doesn't source the shell rc):
-
-```bash
-curl -sX PATCH "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/development_mode" \
-  -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-  -H "Content-Type: application/json" \
-  --data '{"value":"on"}'
-```
-
-- **When to enable:** any deploy that updates static assets (CSS/JS/HTML/images), nginx config changes, anything where stale cache could mask the change.
-- **Auto-expires after 3 hours**, so re-enable on each working session if needed.
-- Look up a new zone ID by domain: `curl -s "https://api.cloudflare.com/client/v4/zones?name=DOMAIN" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq '.result[0].id'` — then add it to `local.zsh` as `CLOUDFLARE_ZONE_<UPPER_NAME>`.
-- Confirm success by checking the response: `"result": {"value": "on"}`.
+When iterating on assets behind a Cloudflare-proxied domain (`colefoster.ca`, `fostered.dev`, `emilyrank.com`, etc.), enable **Development Mode** to bypass the edge cache for 3h so edits show up on hard reload instead of 5–30 min later. Run `cfdev on` (helper from `~/dotfiles/zsh/macos/local.zsh`; `cfdev on <domain>` targets another zone, `cfdev off` disables). Raw-API fallback, zone-ID lookup, and new-zone setup live in the **`deployer` agent**.
 
 ## Skills
 

@@ -71,6 +71,14 @@ For anything non-trivial (or if Cole asks), set up **GitHub Actions → SSH depl
 2. Check if a wildcard `*.colefoster.ca` record exists pointing to ash — if yes, no DNS work needed. If no, create an A record `<subdomain>.colefoster.ca → <ash IP>`, proxied or unproxied per the neighbor domain's setting (mirror it).
 3. `ash`'s public IP: `ssh ash 'curl -s ifconfig.me'`.
 
+### Cloudflare dev mode (cache bypass)
+
+After deploying static assets Cole will iterate on, enable Development Mode so edits aren't masked by the edge cache (auto-expires after 3h). `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_ZONE_ID` are exported from `~/dotfiles/zsh/macos/local.zsh`.
+
+- Helper: `cfdev on` (default zone colefoster.ca), `cfdev on <domain>`, `cfdev off`.
+- Raw API (if the shell rc isn't sourced): `curl -sX PATCH "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/settings/development_mode" -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" -H "Content-Type: application/json" --data '{"value":"on"}'` — expect `"result":{"value":"on"}`.
+- Look up a new zone ID: `curl -s "https://api.cloudflare.com/client/v4/zones?name=DOMAIN" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" | jq '.result[0].id'` → add to `local.zsh` as `CLOUDFLARE_ZONE_<UPPER_NAME>`.
+
 ## TLS
 
 - If certbot is the pattern: `ssh ash 'sudo certbot --nginx -d <sub>.colefoster.ca --non-interactive --agree-tos -m <cole-email>'`. Find the email from an existing cert.
