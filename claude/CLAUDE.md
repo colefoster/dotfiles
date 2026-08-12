@@ -69,6 +69,33 @@ Cole skims. Write for a reader who is glancing, not reading.
 
 Applies to main responses and subagent outputs alike.
 
+### Task reports — bullets, hard cap
+
+Finished doing something? Report it as **short bullets, one fact each.** Target **≤100 words total**. One line of outcome up top if it needs framing, then the bullets, then stop.
+
+Bullets should be scannable, not paragraphs wearing a dash:
+
+```
+- Built at localhost:5174/admin.html — `npm run dev:tools`
+- Editable: types, classes, 337 moves, items, augments
+- Read-only: movesets, VFX
+- Saves to `data/tuning.json` (committed — diff + revert it)
+- **Reload the page after saving** for the game to see it
+- Your uncommitted render/UI work untouched
+```
+
+**Omit unless asked:**
+
+- how you verified it, what you tested, what passed
+- options you considered and rejected
+- caveats that don't change Cole's next action
+- unrequested "next steps" or recommendations
+- restating what he already knows
+
+**Longer is right when the answer IS the analysis** — findings, comparisons, debugging, "why is X slow". Depth he asked for is the value; don't amputate it. Even then: answer first, evidence second, stop.
+
+Bullets don't make length acceptable. A long response in bullets is still long.
+
 ## Remote Machines (SSH)
 
 When tasks involve remote machines, use these SSH hosts via Bash.
