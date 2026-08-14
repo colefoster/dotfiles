@@ -85,7 +85,8 @@
     "frontend-design@claude-plugins-official": false,
     "clangd-lsp@claude-plugins-official": true,
     "watch@claude-video": true,
-    "mattpocock-skills@claude-plugins-official": true
+    "mattpocock-skills@claude-plugins-official": true,
+    "codex@openai-codex": true
   },
   "extraKnownMarketplaces": {
     "claude-video": {
@@ -93,10 +94,17 @@
         "source": "github",
         "repo": "bradautomates/claude-video"
       }
+    },
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
     }
   },
   "effortLevel": "medium",
   "tui": "fullscreen",
+  "viewMode": "focus",
   "skipDangerousModePermissionPrompt": true,
   "autoScrollEnabled": true,
   "agentPushNotifEnabled": true
