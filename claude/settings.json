@@ -102,9 +102,9 @@
       }
     }
   },
+  "viewMode": "focus",
   "effortLevel": "medium",
   "tui": "fullscreen",
-  "viewMode": "focus",
   "skipDangerousModePermissionPrompt": true,
   "autoScrollEnabled": true,
   "agentPushNotifEnabled": true
