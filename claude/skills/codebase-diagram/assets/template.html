@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>REPO — Diagram</title>
+<style>
+  :root{
+    --paper:#d8d1ae;
+    --paper-2:#dcd6b6;
+    --ink:#16150f;
+    --ink-2:#4a4736;
+    --rule:#16150f;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--paper);color:var(--ink);font-family:var(--mono);}
+  body{font-size:12px;line-height:1.5;overflow:hidden;-webkit-font-smoothing:antialiased}
+  #app{display:grid;grid-template-rows:auto 1fr auto;height:100vh}
+
+  /* ---- top bar ---- */
+  #top{display:flex;align-items:stretch;border-bottom:1px solid var(--rule)}
+  .cell{padding:6px 14px;border-right:1px solid var(--rule);display:flex;flex-direction:column;justify-content:center;gap:2px;min-width:0}
+  .cell .k{font-size:9px;letter-spacing:.14em;color:var(--ink-2)}
+  .cell .v{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #top .spacer{flex:1;border-right:1px solid var(--rule)}
+  #controls{display:flex;align-items:center;gap:8px;padding:0 12px}
+  button{font:inherit;font-size:10px;letter-spacing:.12em;background:transparent;color:var(--ink);
+    border:1px solid var(--rule);padding:5px 10px;cursor:pointer}
+  button:hover{background:var(--ink);color:var(--paper)}
+
+  /* ---- body ---- */
+  #main{display:grid;grid-template-columns:200px 1fr 360px;min-height:0}
+  #index,#panel{overflow:auto;border-color:var(--rule)}
+  #index{border-right:1px solid var(--rule);padding:10px 0}
+  #panel{border-left:1px solid var(--rule)}
+  #stage{position:relative;overflow:hidden}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  #zoom{position:absolute;top:10px;right:12px;display:flex;flex-direction:column;gap:4px}
+  #zoom button{width:24px;height:24px;padding:0;font-size:13px;line-height:1;background:var(--paper)}
+
+  /* ---- index ---- */
+  .sec{font-size:9px;letter-spacing:.16em;color:var(--ink-2);padding:12px 12px 4px}
+  .item{display:flex;gap:8px;align-items:flex-start;margin:0 8px 4px;padding:6px 8px;border:1px solid var(--rule);cursor:pointer}
+  .item.sub{margin-left:22px}
+  .item .key{font-size:9px;color:var(--ink-2);min-width:14px}
+  .item .nm{flex:1;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+  .item .ct{font-size:9px;color:var(--ink-2)}
+  .item:hover{background:rgba(0,0,0,.06)}
+  .item.on{background:var(--ink);color:var(--paper)}
+  .item.on .key,.item.on .ct{color:var(--paper)}
+
+  /* ---- panel ---- */
+  #tabs{display:flex;border-bottom:1px solid var(--rule)}
+  .tab{flex:1;text-align:center;padding:8px;font-size:10px;letter-spacing:.14em;cursor:pointer;border-right:1px solid var(--rule)}
+  .tab:last-child{border-right:0}
+  .tab.on{background:var(--ink);color:var(--paper)}
+  #body{padding:16px 18px 40px}
+  .eyebrow{font-size:9px;letter-spacing:.18em;color:var(--ink-2);margin-bottom:8px}
+  h1{font-size:22px;font-weight:400;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--ink-2);margin:0 0 18px}
+  h2{font-size:9px;letter-spacing:.18em;color:var(--ink-2);font-weight:400;
+     margin:22px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--rule)}
+  p{margin:0 0 12px}
+  mark{background:var(--ink);color:var(--paper);padding:0 3px}
+  ul{margin:0 0 12px;padding-left:16px}
+  li{margin-bottom:5px}
+  .flow{color:var(--ink-2)}
+  .flow b{font-weight:400;color:var(--ink)}
+  .go{display:inline-block;border:1px solid var(--rule);padding:3px 8px;font-size:10px;letter-spacing:.1em;cursor:pointer;margin-top:4px}
+  .go:hover{background:var(--ink);color:var(--paper)}
+
+  /* ---- footer ---- */
+  #legend{border-top:1px solid var(--rule);padding:7px 14px;font-size:9px;letter-spacing:.1em;color:var(--ink-2);
+    display:flex;gap:18px;flex-wrap:wrap}
+  @media (max-width:1100px){#main{grid-template-columns:170px 1fr 300px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <div class="cell" style="min-width:230px"><span class="k">REPOSITORY</span><span class="v" id="repoName">—</span></div>
+    <div id="stats" style="display:flex"></div>
+    <div class="spacer"></div>
+    <div id="controls">
+      <button id="btnMode">EXPAND</button>
+      <button id="btnFlow">PAUSE FLOW</button>
+      <button id="btnStep">TRACE STEP</button>
+      <button id="btnReset">RESET VIEW</button>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="index"></div>
+    <div id="stage">
+      <canvas id="c"></canvas>
+      <div id="zoom"><button id="zin">+</button><button id="zout">−</button></div>
+    </div>
+    <div id="panel">
+      <div id="tabs">
+        <div class="tab on" data-t="what">WHAT IT DOES</div>
+        <div class="tab" data-t="how">HOW IT'S BUILT</div>
+      </div>
+      <div id="body"></div>
+    </div>
+  </div>
+
+  <div id="legend">
+    <span>→ GO INSIDE</span><span>← COME BACK OUT</span><span>HOVER TO READ</span>
+    <span>CLICK TO PIN</span><span>DRAG TO PAN</span><span>SCROLL TO ZOOM</span><span>EXPAND FOR THE FLOW</span>
+  </div>
+</div>
+
+<script>
+// ============================ DATA START ============================
+// Replace this whole block with the analysed repository. Schema in SKILL.md.
+const DATA = {
+  repo: "example-repo",
+  title: "The Example",
+  subtitle: "what this repository is, in one line",
+  stats: [ {label:"FILES", value:"120"}, {label:"LINES", value:"18,400"} ],
+  what: "<p>Plain-language description of what the system <mark>does</mark>.</p>",
+  how: "<p>How to read the diagram, and how it is built.</p>",
+  sections: [ {name:"THE SYSTEM", nodes:["a"]} ],
+  nodes: [
+    { id:"a", key:"A", name:"Example Part", count:3, gx:0, gy:0, w:2, d:2, mag:0.6,
+      what:"What it does.", how:"How it is built.", condition:[],
+      steps:[{name:"first",what:"..."},{name:"second",what:"..."}] }
+  ],
+  edges: [ /* {from:"a", to:"b", flow:"unit stats"} */ ]
+};
+// ============================= DATA END =============================
+
+/* ------------------------------------------------------------------ */
+const TW = 34, TH = 17, ZUNIT = 280, ZUNIT_EXP = 110;
+let ZU = ZUNIT;   // towers shrink in expanded mode so the flow stays compact  // iso tile half-sizes, height unit
+const MONO = 'ui-monospace, Menlo, monospace';
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const pick = document.createElement('canvas'), pctx = pick.getContext('2d', {willReadFrequently:true});
+let DPR = 1, view = {x:0, y:0, z:1}, home = null;
+let hover = null, sel = null, inside = null, tab = 'what';
+let flowing = true, t = 0, stepPulse = -1;
+
+const byId = {}; DATA.nodes.forEach(n => byId[n.id] = n);
+const N = () => inside ? insideNodes(inside) : DATA.nodes;
+const E = () => inside ? insideEdges(inside) : DATA.edges;
+
+/* ---- derive an interior scene from a node's steps ---- */
+const cacheIn = {};
+function insideNodes(n){
+  if (cacheIn[n.id]) return cacheIn[n.id].nodes;
+  build(n); return cacheIn[n.id].nodes;
+}
+function insideEdges(n){ if(!cacheIn[n.id]) build(n); return cacheIn[n.id].edges; }
+function build(n){
+  const steps = n.steps || [];
+  const nodes = steps.map((s,i) => ({
+    id:n.id+':'+i, key:String(i+1), name:s.name, count:s.count||null,
+    gx:i*7, gy:0, w:3, d:3,
+    mag:(s.mag != null ? s.mag : .45)*.55, what:s.what||'', how:s.how||'', condition:s.condition||[]
+  }));
+  const edges = nodes.slice(1).map((s,i) => ({from:nodes[i].id, to:s.id, flow:steps[i+1].flow||''}));
+  cacheIn[n.id] = {nodes: relax(nodes), edges};
+}
+
+/* ---- de-occlusion: keep lanes, push depth so no block hides another ----
+   A block's silhouette spans x=[d0,d1]*TW and y=[s*TH - height, (s+w+d)*TH].
+   For any pair sharing a lane, the front one must clear the back one's front edge. */
+function relax(list){
+  const L = list.map(n => ({n, d:n.gx-n.gy, s:n.gx+n.gy}));
+  L.sort((a,b) => a.s - b.s);
+  L.forEach((j,ji) => {
+    for (let ii = 0; ii < ji; ii++){
+      const i = L[ii];
+      const i0 = i.d - i.n.d - 1, i1 = i.d + i.n.w + 1, j0 = j.d - j.n.d, j1 = j.d + j.n.w;
+      if (j0 >= i1 || i0 >= j1) continue;                 // different lane, no conflict
+      const need = i.s + i.n.w + i.n.d + heightOf(j.n)/TH + 2;
+      if (j.s < need) j.s = need;
+    }
+  });
+  L.forEach(({n,d,s}) => { n.gx = (s+d)/2; n.gy = (s-d)/2; });
+  return list;
+}
+
+/* ---- geometry ---- */
+const iso = (gx,gy) => ({x:(gx-gy)*TW, y:(gx+gy)*TH});
+function corners(n){
+  const a = iso(n.gx, n.gy), b = iso(n.gx+n.w, n.gy), c = iso(n.gx+n.w, n.gy+n.d), d = iso(n.gx, n.gy+n.d);
+  return [a,b,c,d];
+}
+const heightOf = n => Math.max(16, (n.mag||.3) * ZU);
+function centerTop(n){
+  const [a,,c] = corners(n);
+  return {x:(a.x+c.x)/2, y:(a.y+c.y)/2 - heightOf(n)};
+}
+
+/* ---- two layouts -------------------------------------------------
+   compact  = the authored grid, de-occluded
+   expanded = layered by flow: depth is how far down the data has come,
+              and each section owns a labelled lane band            */
+const POS = {compact:{}, expanded:{}}, BAND = {d0:0, d1:0};
+let mode = 'compact', anim = 0;
+const secOf = {}; DATA.sections.forEach((s,i) => s.nodes.forEach((id,j) => secOf[id] = {b:i, o:j}));
+
+function flowRanks(){
+  const adj = {}; DATA.nodes.forEach(n => adj[n.id] = []);
+  DATA.edges.forEach(e => { if (adj[e.from] && byId[e.to]) adj[e.from].push(e.to); });
+  const color = {}, keep = [];
+  const walk = u => {
+    color[u] = 1;
+    adj[u].forEach(v => { if (color[v] === 1) return;   // a back edge — the loop closes, ignore it
+      keep.push([u,v]); if (!color[v]) walk(v); });
+    color[u] = 2;
+  };
+  DATA.nodes.forEach(n => { if (!color[n.id]) walk(n.id); });
+  const R = {}; DATA.nodes.forEach(n => R[n.id] = 0);          // longest path = rank
+  for (let k = 0; k < DATA.nodes.length; k++){
+    let ch = false;
+    keep.forEach(([u,v]) => { if (R[v] < R[u] + 1){ R[v] = R[u] + 1; ch = true; } });
+    if (!ch) break;
+  }
+  return R;
+}
+
+function expandedLayout(){
+  // flow runs across the lane axis (rank = how far the data has travelled);
+  // sections stack down the depth axis, one band each, in the order they are listed.
+  const R = flowRanks(), STEP = 9, ROW = 9, GAP = 11, out = {};
+  let top = 0;
+  DATA.sections.forEach(sec => {
+    const mine = sec.nodes.filter(id => byId[id]);
+    const cols = {};
+    mine.forEach(id => { const r = R[id]; (cols[r] = cols[r] || []).push(id); });
+    let deep = 1;
+    Object.keys(cols).forEach(r => { cols[r].sort((x,y) => secOf[x].o - secOf[y].o); deep = Math.max(deep, cols[r].length); });
+    Object.keys(cols).forEach(r => cols[r].forEach((id,i) => {
+      const d = +r * STEP, sD = top + i * ROW;
+      out[id] = {gx:(sD+d)/2, gy:(sD-d)/2};
+    }));
+    top += deep * ROW + GAP;
+  });
+  return out;
+}
+
+const snapshot = () => { const o = {}; DATA.nodes.forEach(n => o[n.id] = {gx:n.gx, gy:n.gy}); return o; };
+const applyPos = m => DATA.nodes.forEach(n => { const p = m[n.id]; if (p){ n.gx = p.gx; n.gy = p.gy; } });
+
+function buildLayouts(){
+  ZU = ZUNIT;     relax(DATA.nodes); POS.compact = snapshot();
+  ZU = ZUNIT_EXP; applyPos(expandedLayout()); relax(DATA.nodes); POS.expanded = snapshot();
+  ZU = ZUNIT;
+  // swimlane strips: a band is a depth range, drawn full width behind the blocks
+  const all = DATA.nodes.map(n => POS.expanded[n.id]);
+  BAND.d0 = Math.min(...DATA.nodes.map(n => POS.expanded[n.id].gx - POS.expanded[n.id].gy - n.d)) - 5;
+  BAND.d1 = Math.max(...DATA.nodes.map(n => POS.expanded[n.id].gx - POS.expanded[n.id].gy + n.w)) + 3;
+  const bands = DATA.sections.map(sec => {
+    const ns = sec.nodes.map(id => byId[id]).filter(Boolean);
+    if (!ns.length) return null;
+    const top = Math.min(...ns.map(n => POS.expanded[n.id].gx + POS.expanded[n.id].gy - heightOf(n)/TH));
+    const bot = Math.max(...ns.map(n => { const p = POS.expanded[n.id]; return p.gx + p.gy + n.w + n.d; }));
+    return {sec, top, bot};
+  }).filter(Boolean).sort((a,b) => a.top - b.top);
+  bands.forEach((b,i) => {
+    b.sec._top = i === 0 ? b.top - 4 : (bands[i-1].bot + b.top) / 2;
+    b.sec._bot = i === bands.length-1 ? b.bot + 4 : (b.bot + bands[i+1].top) / 2;
+    b.sec._alt = i % 2;
+  });
+  applyPos(POS.compact);
+}
+
+function setMode(m){
+  mode = m; if (inside) leave();
+  ZU = m === 'expanded' ? ZUNIT_EXP : ZUNIT;
+  const target = POS[m];
+  DATA.nodes.forEach(n => { const p = target[n.id]; n.tx = p.gx; n.ty = p.gy; });
+  anim = 1;
+  document.getElementById('btnMode').textContent = m === 'expanded' ? 'COMPACT' : 'EXPAND';
+}
+
+/* ---- painting ---- */
+function poly(g, pts){ g.beginPath(); pts.forEach((p,i)=> i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y)); g.closePath(); }
+function hatch(pts, gap, angle, alpha){
+  const xs = pts.map(p=>p.x), ys = pts.map(p=>p.y);
+  const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys);
+  ctx.save(); poly(ctx, pts); ctx.clip();
+  ctx.globalAlpha = alpha; ctx.lineWidth = .7/view.z; ctx.strokeStyle = '#16150f';
+  const span = (x1-x0)+(y1-y0), dx = Math.cos(angle), dy = Math.sin(angle);
+  ctx.beginPath();
+  for (let s = -span; s < span; s += gap){
+    const px = x0 + s * dx, py = y0 + s * dy;
+    ctx.moveTo(px - dy*span, py + dx*span);
+    ctx.lineTo(px + dy*span, py - dx*span);
+  }
+  ctx.stroke(); ctx.restore();
+}
+function block(n, state){
+  const [a,b,c,d] = corners(n), h = heightOf(n);
+  const up = p => ({x:p.x, y:p.y - h});
+  const top = [up(a), up(b), up(c), up(d)];
+  const left = [d, c, up(c), up(d)];
+  const right = [b, c, up(c), up(b)];
+  const on = state === 'sel', hi = state === 'hover';
+
+  ctx.fillStyle = 'rgba(216,209,174,.92)';
+  [left, right, top].forEach(f => { poly(ctx, f); ctx.fill(); });
+  hatch(left,  4, Math.PI/2, on?.95:.66);
+  hatch(right, 4, Math.PI/2, on?.7:.42);
+  hatch(top,   5, Math.PI/4, on?.8:.46);
+  if (on){ ctx.save(); poly(ctx, top); ctx.clip(); ctx.fillStyle='rgba(22,21,15,.16)'; ctx.fill(); ctx.restore(); }
+
+  ctx.lineWidth = (on ? 1.7 : hi ? 1.35 : 1) / view.z;
+  ctx.strokeStyle = '#16150f';
+  [left, right, top].forEach(f => { poly(ctx, f); ctx.stroke(); });
+  // footprint
+  ctx.setLineDash([2/view.z,3/view.z]); ctx.globalAlpha=.45; ctx.lineWidth=.8/view.z; poly(ctx,[a,b,c,d]); ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+
+  const F = MONO, k = 1/view.z;   // keep text at constant screen size
+  const ct = centerTop(n);
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  if (n.key){
+    ctx.fillStyle = '#16150f'; ctx.font = (11*k) + 'px ' + F;
+    ctx.fillText(n.key, ct.x, ct.y + 2*k);
+  }
+  if (on || hi){
+    ctx.font = (10*k) + 'px ' + F;
+    const label = n.name.toUpperCase(), w = ctx.measureText(label).width;
+    ctx.fillStyle = '#16150f'; ctx.fillRect(ct.x - w/2 - 5*k, ct.y - 30*k, w + 10*k, 15*k);
+    ctx.fillStyle = '#d8d1ae'; ctx.fillText(label, ct.x, ct.y - 22*k);
+  }
+}
+
+/* ---- edge routing: L-path through grid space, drawn on the ground ---- */
+function path(e){
+  const A = byId2(e.from), B = byId2(e.to); if(!A||!B) return null;
+  const a = {gx:A.gx+A.w/2, gy:A.gy+A.d/2}, b = {gx:B.gx+B.w/2, gy:B.gy+B.d/2};
+  const mid = {gx:b.gx, gy:a.gy};
+  return [iso(a.gx,a.gy), iso(mid.gx,mid.gy), iso(b.gx,b.gy)];
+}
+function byId2(id){ return N().find(n => n.id === id); }
+function plen(pts){ let L=0; for(let i=1;i<pts.length;i++) L += Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y); return L; }
+function at(pts, u){
+  const L = plen(pts); let d = u*L;
+  for(let i=1;i<pts.length;i++){
+    const seg = Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y);
+    if (d <= seg){ const k = seg? d/seg : 0; return {x:pts[i-1].x+(pts[i].x-pts[i-1].x)*k, y:pts[i-1].y+(pts[i].y-pts[i-1].y)*k}; }
+    d -= seg;
+  }
+  return pts[pts.length-1];
+}
+function drawEdge(e){
+  const p = path(e); if(!p) return;
+  const live = sel && (e.from===sel.id || e.to===sel.id);
+  ctx.strokeStyle = '#16150f'; ctx.globalAlpha = live ? .9 : .45; ctx.lineWidth = (live ? 1.3 : .9)/view.z;
+  poly(ctx, p); ctx.beginPath(); p.forEach((q,i)=> i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)); ctx.stroke();
+  ctx.globalAlpha = 1;
+  if (live && e.flow){
+    const k = 1/view.z, q = at(p, .5);
+    ctx.font = (9.5*k) + 'px ' + MONO; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(e.flow).width;
+    ctx.fillStyle = '#d8d1ae'; ctx.fillRect(q.x - w/2 - 4*k, q.y - 8*k, w + 8*k, 14*k);
+    ctx.fillStyle = '#16150f'; ctx.fillText(e.flow, q.x, q.y - 1*k);
+  }
+  const dots = 3;
+  for (let i=0;i<dots;i++){
+    let u = ((t*0.16) + i/dots) % 1;
+    if (stepPulse >= 0) u = (stepPulse + i/dots) % 1;
+    const q = at(p, u), r = (live ? 3.2 : 2.4)/view.z;
+    ctx.fillStyle = '#16150f';
+    ctx.beginPath(); ctx.moveTo(q.x, q.y-r); ctx.lineTo(q.x+r, q.y); ctx.lineTo(q.x, q.y+r); ctx.lineTo(q.x-r, q.y); ctx.fill();
+  }
+}
+
+function bands(){
+  const k = 1/view.z, x0 = BAND.d0*TW, x1 = BAND.d1*TW;
+  ctx.save();
+  DATA.sections.forEach(sec => {
+    if (sec._top === undefined) return;
+    const y0 = sec._top*TH, y1 = sec._bot*TH;
+    if (sec._alt){ ctx.fillStyle = 'rgba(22,21,15,.05)'; ctx.fillRect(x0, y0, x1-x0, y1-y0); }
+    ctx.strokeStyle = '#16150f'; ctx.globalAlpha = .3; ctx.lineWidth = .8*k;
+    ctx.setLineDash([6*k, 5*k]);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = .62; ctx.fillStyle = '#16150f';
+    ctx.font = (12*k) + 'px ' + MONO; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = (2.5*k) + 'px';
+    ctx.fillText(sec.name, x0 + 10*k, y0 + 8*k);
+    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
+    ctx.globalAlpha = 1;
+  });
+  ctx.restore();
+}
+
+function grid(){
+  ctx.strokeStyle='#16150f'; ctx.globalAlpha=.13; ctx.lineWidth=.6/view.z;
+  const R = 26;
+  ctx.beginPath();
+  for(let i=-R;i<=R;i+=2){
+    let a=iso(i,-R), b=iso(i,R); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    a=iso(-R,i); b=iso(R,i); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+  }
+  ctx.stroke(); ctx.globalAlpha=1;
+}
+
+function draw(){
+  const w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w*DPR){ cv.width=pick.width=w*DPR; cv.height=pick.height=h*DPR; }
+  [ctx, pctx].forEach(g => { g.setTransform(DPR,0,0,DPR,0,0); g.clearRect(0,0,w,h);
+    g.translate(w/2 + view.x, h/2 + view.y); g.scale(view.z, view.z); });
+  ctx.fillStyle = '#d8d1ae'; ctx.fillRect(-1e4,-1e4,2e4,2e4);
+  grid();
+  if (mode === 'expanded' && !inside) bands();
+  E().forEach(drawEdge);
+  const order = [...N()].sort((a,b) => (a.gx+a.gy) - (b.gx+b.gy));
+  order.forEach(n => {
+    block(n, sel && sel.id===n.id ? 'sel' : hover && hover.id===n.id ? 'hover' : '');
+    // picking pass
+    const [a,b,c,d] = corners(n), up = p => ({x:p.x, y:p.y-heightOf(n)});
+    pctx.fillStyle = idColor(N().indexOf(n));
+    [[d,c,up(c),up(d)],[b,c,up(c),up(b)],[up(a),up(b),up(c),up(d)]].forEach(f => { poly(pctx,f); pctx.fill(); });
+  });
+}
+const idColor = i => 'rgb(' + ((i+1)&255) + ',' + (((i+1)>>8)&255) + ',0)';
+function pickAt(x,y){
+  const p = pctx.getImageData(x*DPR, y*DPR, 1, 1).data;
+  const i = p[0] + (p[1]<<8) - 1;
+  return i >= 0 ? N()[i] : null;
+}
+
+/* ---- panel ---- */
+const esc = s => String(s==null?'':s);
+function render(){
+  const b = document.getElementById('body');
+  const n = sel || hover || inside;
+  if (!n){
+    b.innerHTML = `<div class="eyebrow">${esc(DATA.repo).toUpperCase()}</div>
+      <h1>${esc(DATA.title)}</h1><p class="sub">${esc(DATA.subtitle)}</p>
+      ${tab==='what' ? DATA.what : DATA.how}`;
+  } else {
+    const isC = inside && n.id === inside.id;
+    const ins = isC ? 'INSIDE' : inside ? `${inside.name.toUpperCase()} · STEP` : 'STRUCTURE';
+    const outs = E().filter(e => e.from===n.id), incs = E().filter(e => e.to===n.id);
+    const flows = l => l.length ? '<ul>' + l.map(e =>
+        `<li class="flow"><b>${esc(e.flow||'—')}</b> ${e.from===n.id?'→':'←'} ${esc((byId2(e.from===n.id?e.to:e.from)||{}).name||'')}</li>`).join('') + '</ul>' : '<p class="flow">none</p>';
+    b.innerHTML = `<div class="eyebrow">${ins}</div>
+      <h1>${esc(n.name)}</h1>
+      ${isC?`<p class="sub">${n.steps.length} steps, in order</p>`:n.count!=null?`<p class="sub">${esc(n.count)} parts</p>`:''}
+      <h2>${tab==='what'?'WHAT IT DOES':"HOW IT'S BUILT"}</h2>
+      <p>${esc(tab==='what' ? n.what : (n.how || n.what))}</p>
+      ${n.condition && n.condition.length ? `<h2>CONDITION</h2><ul>${n.condition.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>` : ''}
+      ${isC ? `<h2>STEPS</h2><ul>${n.steps.map((s,i)=>`<li>${i+1}. ${esc(s.name)}</li>`).join('')}</ul>`
+            : `<h2>SENDS</h2>${flows(outs)}<h2>RECEIVES</h2>${flows(incs)}`}
+      ${!inside && n.steps && n.steps.length ? `<span class="go" id="goIn">→ GO INSIDE (${n.steps.length} STEPS)</span>` : ''}
+      ${inside ? `<span class="go" id="goOut">← COME BACK OUT</span>` : ''}`;
+    const gi = document.getElementById('goIn'); if (gi) gi.onclick = () => enter(n);
+    const go = document.getElementById('goOut'); if (go) go.onclick = leave;
+  }
+  document.querySelectorAll('.item').forEach(el => el.classList.toggle('on', sel && el.dataset.id === sel.id));
+}
+
+function buildIndex(){
+  const ix = document.getElementById('index');
+  ix.innerHTML = DATA.sections.map(s => `<div class="sec">${esc(s.name)}</div>` + s.nodes.map(id => {
+    const n = byId[id]; if(!n) return '';
+    return `<div class="item" data-id="${id}"><span class="key">${esc(n.key||'')}</span>
+      <span class="nm">${esc(n.name)}</span><span class="ct">${n.count!=null?esc(n.count):''}</span></div>`;
+  }).join('')).join('');
+  ix.querySelectorAll('.item').forEach(el => {
+    el.onclick = () => { if (inside) leave(); sel = byId[el.dataset.id]; center(sel); render(); };
+    el.onmouseenter = () => { if(!sel){ hover = byId[el.dataset.id]; render(); } };
+  });
+}
+
+function center(n){
+  const c = centerTop(n);
+  view.x = -c.x * view.z; view.y = -c.y * view.z;
+}
+function enter(n){ if(!n.steps||!n.steps.length) return; inside = n; sel = null; hover = null; fit(); render(); }
+function leave(){ inside = null; sel = null; hover = null; view = {...home}; render(); }
+
+function fit(){
+  const ns = N(); if(!ns.length) return;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  ns.forEach(n => corners(n).concat([centerTop(n)]).forEach(p => {
+    x0=Math.min(x0,p.x); x1=Math.max(x1,p.x); y0=Math.min(y0,p.y); y1=Math.max(y1,p.y); }));
+  const w = cv.clientWidth, h = cv.clientHeight;
+  view.z = Math.min(2, Math.max(.12, Math.min(w/(x1-x0+240), h/(y1-y0+240))));
+  view.x = -((x0+x1)/2) * view.z; view.y = -((y0+y1)/2) * view.z;
+}
+
+/* ---- input ---- */
+let drag = null;
+cv.addEventListener('mousedown', e => { drag = {x:e.clientX, y:e.clientY, vx:view.x, vy:view.y, moved:0}; cv.classList.add('drag'); });
+addEventListener('mouseup', () => { cv.classList.remove('drag'); drag = null; });
+cv.addEventListener('mousemove', e => {
+  const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+  if (drag){ drag.moved += Math.abs(e.movementX)+Math.abs(e.movementY);
+    view.x = drag.vx + (e.clientX-drag.x); view.y = drag.vy + (e.clientY-drag.y); return; }
+  const h = pickAt(mx, my);
+  if ((h && h.id) !== (hover && hover.id)){ hover = h; if(!sel) render(); }
+});
+cv.addEventListener('click', e => {
+  if (drag && drag.moved > 4) return;
+  const r = cv.getBoundingClientRect();
+  const n = pickAt(e.clientX-r.left, e.clientY-r.top);
+  sel = (n && sel && n.id===sel.id) ? null : n; hover = n; render();
+});
+cv.addEventListener('dblclick', e => {
+  const r = cv.getBoundingClientRect();
+  const n = pickAt(e.clientX-r.left, e.clientY-r.top);
+  if (n) enter(n);
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const k = Math.exp(-e.deltaY * .0015), z = Math.min(3, Math.max(.2, view.z * k));
+  view.x *= z/view.z; view.y *= z/view.z; view.z = z;
+}, {passive:false});
+addEventListener('keydown', e => {
+  if (e.key === 'Escape' || e.key === 'ArrowLeft') { if (inside) leave(); else { sel=null; render(); } }
+  if (e.key === 'ArrowRight' && sel) enter(sel);
+  const k = e.key.toUpperCase();
+  const hit = DATA.nodes.find(n => (n.key||'').toUpperCase() === k);
+  if (hit && !inside){ sel = hit; center(hit); render(); }
+});
+document.querySelectorAll('.tab').forEach(el => el.onclick = () => {
+  tab = el.dataset.t;
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x===el));
+  render();
+});
+document.getElementById('btnFlow').onclick = e => {
+  flowing = !flowing; stepPulse = -1; e.target.textContent = flowing ? 'PAUSE FLOW' : 'RESUME FLOW';
+};
+document.getElementById('btnStep').onclick = () => {
+  flowing = false; document.getElementById('btnFlow').textContent = 'RESUME FLOW';
+  stepPulse = stepPulse < 0 ? 0 : (stepPulse + .1) % 1;
+};
+document.getElementById('btnMode').onclick = () => setMode(mode === 'expanded' ? 'compact' : 'expanded');
+document.getElementById('btnReset').onclick = () => { inside = null; sel = null; hover = null; applyPos(POS[mode]); fit(); home = {...view}; render(); };
+document.getElementById('zin').onclick = () => { view.z = Math.min(3, view.z*1.2); };
+document.getElementById('zout').onclick = () => { view.z = Math.max(.2, view.z/1.2); };
+addEventListener('resize', () => { DPR = Math.min(2, devicePixelRatio||1); });
+
+/* ---- boot ---- */
+buildLayouts();
+document.getElementById('repoName').textContent = DATA.repo;
+document.getElementById('stats').innerHTML = (DATA.stats||[]).map(s =>
+  `<div class="cell"><span class="k">${esc(s.label)}</span><span class="v">${esc(s.value)}</span></div>`).join('');
+document.title = DATA.repo + ' — ' + DATA.title;
+buildIndex();
+DPR = Math.min(2, devicePixelRatio||1);
+requestAnimationFrame(() => { fit(); home = {...view}; render(); });
+(function loop(){
+  if (flowing) t += 1/60;
+  if (anim){
+    let done = true;
+    DATA.nodes.forEach(n => {
+      n.gx += (n.tx - n.gx) * .16; n.gy += (n.ty - n.gy) * .16;
+      if (Math.abs(n.tx - n.gx) > .03 || Math.abs(n.ty - n.gy) > .03) done = false;
+    });
+    fit();
+    if (done){ DATA.nodes.forEach(n => { n.gx = n.tx; n.gy = n.ty; }); anim = 0; home = {...view}; }
+  }
+  draw(); requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Fix ~/.claude/skills symlinks so Claude Code can discover them.
+
+The vercel-labs `skills` installer (shared with Codex etc. via ~/.agents/skills)
+writes RELATIVE symlinks (../../.agents/skills/*) into ~/.claude/skills.
+Claude Code's skill discovery does not resolve relative symlink targets, so
+those skills silently fail to load. This rewrites them as ABSOLUTE symlinks
+and prunes any dead links.
+
+Run after any skill install/re-sync:  ~/dotfiles/bin/fix-claude-skill-links
+"""
+import os
+
+SK = os.path.expanduser("~/.claude/skills")
+AG = os.path.expanduser("~/.agents/skills")
+
+fixed = dead = ok = 0
+for name in sorted(os.listdir(SK)):
+    p = os.path.join(SK, name)
+    if not os.path.islink(p):
+        continue
+    tgt = os.readlink(p)
+    # Prune dead links (no valid target anywhere).
+    if not os.path.exists(p):
+        os.remove(p)
+        print(f"PRUNED {name} -> {tgt} (dead)")
+        dead += 1
+        continue
+    # Already absolute and valid — leave it.
+    if tgt.startswith("/"):
+        ok += 1
+        continue
+    # Relative -> rewrite to absolute under ~/.agents/skills.
+    abs_tgt = os.path.join(AG, name)
+    if os.path.isdir(abs_tgt):
+        os.remove(p)
+        os.symlink(abs_tgt, p)
+        print(f"FIXED  {name} -> {abs_tgt}")
+        fixed += 1
+    else:
+        os.remove(p)
+        print(f"PRUNED {name} -> {tgt} (missing {abs_tgt})")
+        dead += 1
+
+print(f"\n{fixed} fixed, {dead} pruned, {ok} already-absolute.")
+if fixed or dead:
+    print("Restart Claude Code to pick up the changes.")
