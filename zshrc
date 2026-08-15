@@ -39,3 +39,5 @@ export HERD_PHP_85_INI_SCAN_DIR="/Users/cole/Library/Application Support/Herd/co
 # zoxide must be initialized last
 export _ZO_DOCTOR=0
 if command -v zoxide &>/dev/null; then eval "$(zoxide init zsh)"; fi
+alias pause-arcanine="bash /Users/cole/Dev/mimikyu/scripts/pause_arcanine.sh"
+alias resume-arcanine="bash /Users/cole/Dev/mimikyu/scripts/resume_arcanine.sh"

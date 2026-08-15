@@ -55,6 +55,16 @@ alias brewsr='brew search'
 alias brewinfo='brew info'
 
 # ──────────────────────────────────────────────
+# SerialPrograms (mimikyu switch_bot)
+# ──────────────────────────────────────────────
+sprb() {
+  local build_dir="$HOME/Dev/mimikyu/switch_bot/build_mac"
+  pkill -f "SerialPrograms.app/Contents/MacOS/SerialPrograms" 2>/dev/null
+  cmake --build "$build_dir" --target SerialPrograms -j8 || return $?
+  open "$build_dir/SerialPrograms.app"
+}
+
+# ──────────────────────────────────────────────
 # macOS Tool Managers
 # ──────────────────────────────────────────────
 eval "$(mise activate zsh)"
