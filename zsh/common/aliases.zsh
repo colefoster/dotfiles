@@ -176,7 +176,6 @@ if command -v dive &>/dev/null; then alias ddive='dive'; fi
 # ──────────────────────────────────────────────
 # pnpm / bun
 # ──────────────────────────────────────────────
-alias pi='pnpm install'
 alias pa='pnpm add'
 alias pd='pnpm dev'
 alias pb='pnpm build'
