@@ -97,6 +97,24 @@ envs() { env | sort | command rg "${1:-.}"; }
 # Kill whatever is on a port
 portfree() { lsof -ti :"$1" | xargs kill -9 2>/dev/null && echo "Port $1 freed" || echo "Port $1 already free"; }
 
+# Restart the pi-lead app: stop whatever's on its ports (old server.mjs or the new
+# harness+web split), then relaunch start.mjs detached. Caddy fronts it on :8443.
+pilead() {
+  local dir=/Users/cole/Dev/pi
+  local pids
+  pids=$(lsof -t -iTCP:5178 -iTCP:5179 -sTCP:LISTEN 2>/dev/null)
+  # Pipe to xargs: zsh does NOT word-split $pids, so a multiline list (5178 +
+  # 5179 = always 2+ pids) would reach `kill` as one illegal arg and no-op.
+  [ -n "$pids" ] && print -r -- "$pids" | xargs kill 2>/dev/null
+  pkill -f "$dir/start.mjs" 2>/dev/null
+  sleep 1
+  # Launch with the absolute path so the cmdline matches the pkill above on the
+  # next restart (relative `node start.mjs` orphaned old parents → port pileup).
+  ( cd "$dir" && nohup node "$dir/start.mjs" >/tmp/pi-lead.log 2>&1 &! )
+  sleep 2
+  echo "pi-lead restarted → http://localhost:5178 (caddy :8443) · logs: tail -f /tmp/pi-lead.log"
+}
+
 # ──────────────────────────────────────────────
 # Data Utilities
 # ──────────────────────────────────────────────
@@ -104,3 +122,16 @@ portfree() { lsof -ti :"$1" | xargs kill -9 2>/dev/null && echo "Port $1 freed" 
 # URL encode/decode
 urlencode() { python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" "$*"; }
 urldecode() { python3 -c "import urllib.parse, sys; print(urllib.parse.unquote(sys.argv[1]))" "$*"; }
+
+# ──────────────────────────────────────────────
+# File Managers
+# ──────────────────────────────────────────────
+
+# yazi wrapper: cd into the directory yazi was in when you quit (with q)
+y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+    command yazi "$@" --cwd-file="$tmp"
+    IFS= read -r -d '' cwd < "$tmp"
+    [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
+    command rm -f -- "$tmp"
+}
