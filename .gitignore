@@ -15,3 +15,7 @@ zsh-backup/
 
 # Claude Code runtime logs
 claude/hooks/*.log
+
+# Third-party skill, installed via `npx impeccable` — versioned upstream (Apache 2.0),
+# 148 files. Reinstall rather than vendoring someone else's tree in here.
+claude/skills/impeccable/
