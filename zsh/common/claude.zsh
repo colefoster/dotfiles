@@ -18,20 +18,46 @@ _cc_session() {
 }
 
 # Run claude inside a per-directory tmux session so quitting the terminal
-# (cmd-Q) detaches instead of killing the session. Re-running in the same dir
-# reattaches to the live session.
+# (cmd-Q) detaches instead of killing the session.
+#
+#   claude              attach the dir's session if it exists, else start one
+#   claude <args...>    always a fresh session (suffixed if one already exists),
+#                       so --resume/--model/etc are never silently swallowed
+#   one-shot / non-TUI  runs bare — nothing worth keeping alive
 claude() {
 	if [[ -n $TMUX || ! -o interactive ]] || ! command -v tmux >/dev/null; then
 		command claude --dangerously-skip-permissions "$@"
 		return
 	fi
 
-	local s=$(_cc_session)
-	if tmux has-session -t "=$s" 2>/dev/null; then
-		tmux attach -t "=$s"
-	else
-		tmux new-session -s "$s" -c "$PWD" "claude --dangerously-skip-permissions ${(q)@}"
+	# Subcommands and print/info modes exit on their own; don't wrap them.
+	case ${1-} in
+		mcp|config|plugin|agents|update|doctor|install|migrate-installer|setup-token|-v|--version|-h|--help)
+			command claude "$@"
+			return ;;
+	esac
+	if (( $@[(I)-p] || $@[(I)--print] )); then
+		command claude --dangerously-skip-permissions "$@"
+		return
 	fi
+
+	local s=$(_cc_session)
+	if (( $# == 0 )); then
+		if tmux has-session -t "=$s" 2>/dev/null; then
+			tmux attach -t "=$s"
+			return
+		fi
+	else
+		local n=2
+		while tmux has-session -t "=$s" 2>/dev/null; do
+			s="$(_cc_session)-$n"
+			(( n++ ))
+		done
+	fi
+	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
+	# quotes each element and joins with spaces, which is what sh needs.
+	local -a a=("$@")
+	tmux new-session -s "$s" -c "$PWD" "claude --dangerously-skip-permissions ${(q)a[@]}"
 }
 
 # List live claude sessions; with an argument, attach to the matching one.
