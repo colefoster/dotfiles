@@ -20,9 +20,11 @@ _cc_session() {
 # Run claude inside a per-directory tmux session so quitting the terminal
 # (cmd-Q) detaches instead of killing the session.
 #
-#   claude              attach the dir's session if it exists, else start one
-#   claude <args...>    always a fresh session (suffixed if one already exists),
-#                       so --resume/--model/etc are never silently swallowed
+#   claude              reattach the dir's detached session, else start one;
+#                       if it's already open in another window, start a sibling
+#                       rather than mirroring it
+#   claude <args...>    always a fresh session, so --resume/--model/etc are
+#                       never silently swallowed
 #   one-shot / non-TUI  runs bare — nothing worth keeping alive
 claude() {
 	if [[ -n $TMUX || ! -o interactive ]] || ! command -v tmux >/dev/null; then
@@ -44,10 +46,17 @@ claude() {
 	local s=$(_cc_session)
 	if (( $# == 0 )); then
 		if tmux has-session -t "=$s" 2>/dev/null; then
-			tmux attach -t "=$s"
-			return
+			# Attaching a second client to a live session mirrors it (and forces
+			# both windows to the smaller size). Only reattach if nothing else
+			# is watching; otherwise fall through and start a sibling session.
+			if [[ $(tmux display -p -t "=$s" '#{session_attached}') == 0 ]]; then
+				tmux attach -t "=$s"
+				return
+			fi
+			print -u2 "claude: $s is open in another window — starting a new session (ccl -s to steal it)"
 		fi
-	else
+	fi
+	if (( $# > 0 )) || tmux has-session -t "=$s" 2>/dev/null; then
 		local n=2
 		while tmux has-session -t "=$s" 2>/dev/null; do
 			s="$(_cc_session)-$n"
@@ -60,10 +69,15 @@ claude() {
 	tmux new-session -s "$s" -c "$PWD" "claude --dangerously-skip-permissions ${(q)a[@]}"
 }
 
-# List live claude sessions; with an argument, attach to the matching one.
+# List live claude sessions; with an argument, attach to the first match.
+#   ccl -s <name>   steal it, detaching whatever window has it open
 ccl() {
+	local steal=
+	[[ $1 == -s ]] && { steal=-d; shift }
 	if [[ -n $1 ]]; then
-		tmux attach -t "$(tmux ls -F '#S' 2>/dev/null | grep -m1 -- "$1")"
+		local t=$(tmux ls -F '#S' 2>/dev/null | grep -m1 -- "$1")
+		[[ -z $t ]] && { print -u2 "ccl: no session matching '$1'"; return 1 }
+		tmux attach $steal -t "=$t"
 		return
 	fi
 	tmux ls -F '#{session_name}	#{session_path}	(#{session_attached} attached)' 2>/dev/null | grep '^cc-'
