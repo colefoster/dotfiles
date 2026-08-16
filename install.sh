@@ -33,6 +33,9 @@ link() {
 # Core symlinks
 link "$DOTFILES_DIR/zshrc" "$HOME/.zshrc"
 
+# tmux
+link "$DOTFILES_DIR/tmux.conf" "$HOME/.tmux.conf"
+
 # Starship
 mkdir -p "$HOME/.config"
 link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
