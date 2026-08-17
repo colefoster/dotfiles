@@ -66,7 +66,11 @@ claude() {
 	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
 	# quotes each element and joins with spaces, which is what sh needs.
 	local -a a=("$@")
-	tmux new-session -s "$s" -c "$PWD" "claude --dangerously-skip-permissions ${(q)a[@]}"
+	# Keep the pane open after Claude exits so its final resume command remains
+	# visible instead of being replaced immediately by tmux's `[exited]` notice.
+	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
+	run+="; _cc_status=\$?; printf '\\nPress Enter to return to the shell...'; read -r _cc_reply; exit \$_cc_status"
+	tmux new-session -s "$s" -c "$PWD" "$run"
 }
 
 # List live claude sessions; with an argument, attach to the first match.
