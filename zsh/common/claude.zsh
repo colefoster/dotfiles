@@ -51,7 +51,9 @@ claude() {
 			# is watching; otherwise fall through and start a sibling session.
 			if [[ $(tmux display -p -t "=$s" '#{session_attached}') == 0 ]]; then
 				tmux attach -t "=$s"
-				return
+				local attach_status=$?
+				clear
+				return $attach_status
 			fi
 			print -u2 "claude: $s is open in another window — starting a new session (ccl -s to steal it)"
 		fi
@@ -71,6 +73,9 @@ claude() {
 	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
 	run+="; _cc_status=\$?; printf '\\nPress Enter to return to the shell...'; read -r _cc_reply; exit \$_cc_status"
 	tmux new-session -s "$s" -c "$PWD" "$run"
+	local status=$?
+	clear
+	return $status
 }
 
 # List live claude sessions; with an argument, attach to the first match.

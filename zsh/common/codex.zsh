@@ -33,7 +33,9 @@ codex() {
 	if (( $# == 0 )) && tmux has-session -t "=$s" 2>/dev/null; then
 		if [[ $(tmux display -p -t "=$s" '#{session_attached}') == 0 ]]; then
 			tmux attach -t "=$s"
-			return
+			local attach_status=$?
+			clear
+			return $attach_status
 		fi
 		print -u2 "codex: $s is open in another window — starting a new session (cxl -s to steal it)"
 	fi
@@ -48,6 +50,9 @@ codex() {
 
 	local -a args=("$@")
 	tmux new-session -s "$s" -c "$PWD" "codex ${(q)args[@]}"
+	local status=$?
+	clear
+	return $status
 }
 
 # List live Codex sessions; with an argument, attach to the first match.
