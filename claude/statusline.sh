@@ -41,4 +41,4 @@ case "${CLAUDE_ACCOUNT_LABEL:-}" in
   *) ACCT="${M}${B}${CLAUDE_ACCOUNT_LABEL}${RST}  " ;;
 esac
 
-printf '%b\n' "${ACCT}${C}${B}${MODEL}${RST}  ${PCT_CLR}${PCT}%%${RST}  ${DIR##*/}${GIT}"
+printf '%b\n' "${ACCT}${C}${B}${MODEL}${RST}  ${PCT_CLR}${PCT}%${RST}  ${DIR##*/}${GIT}"
