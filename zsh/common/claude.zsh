@@ -24,6 +24,9 @@ _cc_session() {
 # merely detached is still alive, so it stays quiet.
 _cc_ended() {
 	tmux has-session -t "=$1" 2>/dev/null && return 0
+	# The tmux client prints a bare "[exited]" as the session dies. Step back
+	# over that line and reuse it, so the footer lands where the noise was.
+	print -n $'\033[1A\033[2K\r'
 	print
 	print -r -- "  session ended · run claude in ${2/#$HOME/~} to pick it back up"
 }
@@ -150,9 +153,10 @@ claude() {
 		-e "CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR" \
 		-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
 		"$run"
-	local status=$?
+	# Not "status": zsh keeps that read-only as an alias for $?.
+	local st=$?
 	_cc_ended "$s" "$PWD"
-	return $status
+	return $st
 }
 
 # List live claude sessions; with an argument, attach to the first match.
