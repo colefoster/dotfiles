@@ -53,10 +53,10 @@ _cc_pick() {
 
 	local sel
 	sel=$(print -rl -- "${rows[@]}" | fzf \
-		--delimiter=$'\t' --with-nth=3.. --no-multi \
+		--delimiter=$'\t' --with-nth=3.. --no-multi --ansi \
 		--height=70% --layout=reverse --border=rounded \
 		--prompt='claude ❯ ' \
-		--header='enter resume   ctrl-n new   ctrl-x kill   esc cancel' \
+		--header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\ndim = open in another window; resuming steals it back' \
 		--preview=${(q)_CC_PREVIEW}' {1}' \
 		--preview-window='right,52%,wrap' \
 		--bind='ctrl-n:become(echo __new__)' \
@@ -113,7 +113,13 @@ claude() {
 		local pick
 		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
 		if [[ -n $pick && $pick != __new__ ]]; then
-			tmux attach -t "=$pick"
+			# A session open in another window has to be stolen; attaching a second
+			# client would mirror it and force both windows to the smaller size.
+			local steal=
+			# A "=" exact-match target works for has-session and kill-session but
+			# comes back empty from display, so match on the plain name.
+			[[ $(tmux display -pt "$pick" '#{session_attached}') == 0 ]] || steal=-d
+			tmux attach $steal -t "=$pick"
 			local attach_status=$?
 			_cc_flush "$pick"
 			return $attach_status

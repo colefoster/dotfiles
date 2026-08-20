@@ -71,7 +71,6 @@ rows=$(
 	tmux ls -F "#{session_name}${tab}#{session_path}${tab}#{session_attached}${tab}#{session_last_attached}${tab}#{session_created}" 2>/dev/null |
 	while IFS="$tab" read -r name path attached last created; do
 		[ "${name#cc-}" != "$name" ] || continue
-		[ "$attached" = 0 ] || continue
 
 		# Fall back to tmux's own clock when there is no transcript to read.
 		stamp=$last
@@ -87,18 +86,18 @@ rows=$(
 		# opened yesterday to resume an old conversation is still in use.
 		recent=$stamp
 		[ "$last" -gt "$recent" ] 2>/dev/null && recent=$last
-		printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$text"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$attached" "$text"
 	done
 )
 
 # Reap first, so a session killed here never appears in the list below.
 if [ "$days" != 0 ]; then
 	cutoff=$((days * 86400))
-	printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $4 > c { print $1 }' |
+	printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $5 == 0 && $4 > c { print $1 }' |
 	while read -r stale; do
 		tmux kill-session -t "=$stale" 2>/dev/null
 	done
-	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $4 <= c')
+	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && ($5 != 0 || $4 <= c)')
 fi
 
 case "$cwd" in
@@ -123,7 +122,12 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
 		here = ($2 == cwd) ? 0 : 1
-		printf "%d\t%s\t%s\t%s %-30s %9s  %s\n", here, $3, $1, (here ? " " : "*"), dir, ago($3), $5
+		open = ($5 == 0) ? 0 : 1
+		# An open session cannot be attached a second time without stealing it,
+		# so it sorts below the free ones and renders dim.
+		row = sprintf("%s %-30s %9s  %s", (here ? " " : "*"), dir, (open ? "open" : ago($3)), $6)
+		if (open) row = "\033[2m" row "\033[0m"
+		printf "%d\t%s\t%s\t%s\n", here * 2 + open, $3, $1, row
 	}' |
 sort -t"$tab" -k1,1n -k2,2n |
 cut -f2,3,4 |
