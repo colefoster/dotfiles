@@ -36,6 +36,15 @@ map=$(
 )
 index=$(find $roots -maxdepth 3 -path '*/projects/*' -name '*.jsonl' 2>/dev/null)
 
+# Every session id with a live process behind it, tmux-wrapped or not, so an
+# ended session is never confused with a running one.
+live_ids=$(
+	for root in $roots; do
+		[ -d "$root/sessions" ] || continue
+		jq -r '.sessionId // empty' "$root"/sessions/*.json 2>/dev/null
+	done
+)
+
 # The last thing you actually typed, newest first. Tool results, sidechain
 # traffic, and the harness's synthetic turns are all somebody else talking.
 JQ='fromjson?
@@ -50,7 +59,7 @@ JQ='fromjson?
 # Print "<epoch>\t<text>" for one tmux session, or nothing when it has no
 # transcript. Used by the row loop below and by cc-preview.
 cc_last_message() {
-	sid=$(printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }')
+	sid=$(cc_sid "$1")
 	[ -n "$sid" ] || return 1
 	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
 	[ -n "$file" ] || return 1
@@ -79,9 +88,18 @@ JQ_TURNS='fromjson?
 	| select($c != "")
 	| "\(.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)\t\(.type)\t\($c[0:400])"'
 
+# A row is either a live tmux session or a "resume:<uuid>" sentinel for a
+# transcript whose session has already ended.
+cc_sid() {
+	case "$1" in
+		resume:*) printf '%s\n' "${1#resume:}" ;;
+		*) printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }' ;;
+	esac
+}
+
 # Print the last N turns of one session, newest first.
 cc_turns() {
-	sid=$(printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }')
+	sid=$(cc_sid "$1")
 	[ -n "$sid" ] || return 1
 	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
 	[ -n "$file" ] || return 1
@@ -112,7 +130,26 @@ rows=$(
 		# opened yesterday to resume an old conversation is still in use.
 		recent=$stamp
 		[ "$last" -gt "$recent" ] 2>/dev/null && recent=$last
-		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$attached" "$text"
+		[ "$attached" = 0 ] && kind=0 || kind=1
+		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$kind" "$text"
+	done
+
+	# Sessions you quit out of still have their transcript, so offer the recent
+	# ones here rather than making you dig out a --resume uuid. Current
+	# directory only: this is for picking up what you just closed.
+	slug=$(printf '%s' "$cwd" | sed 's/[^a-zA-Z0-9]/-/g')
+	shown=0
+	for root in $roots; do
+		[ -d "$root/projects/$slug" ] || continue
+		for file in $(ls -t "$root/projects/$slug"/*.jsonl 2>/dev/null); do
+			[ "$shown" -lt "${CC_ENDED_MAX:-5}" ] || break
+			uuid=$(basename "$file" .jsonl)
+			printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
+			msg=$(cc_last_message "resume:$uuid") || continue
+			stamp=${msg%%"$tab"*}
+			printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+			shown=$((shown + 1))
+		done
 	done
 )
 
@@ -123,14 +160,14 @@ if [ "$days" != 0 ]; then
 	while read -r stale; do
 		tmux kill-session -t "=$stale" 2>/dev/null
 	done
-	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && ($5 != 0 || $4 <= c)')
+	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && ($5 == 1 || $4 <= c)')
 fi
 
 case "$cwd" in
 	"$HOME"*) cwd_disp="~${cwd#"$HOME"}" ;;
 	*) cwd_disp="$cwd" ;;
 esac
-printf '__new__\t0\t+ %-26s %8s  %s\n' "$cwd_disp" '' 'start a new session here'
+printf '__new__\t0\t+ %-24s %-6s %8s  %s\n' "$cwd_disp" '' '' 'start a new session here'
 
 printf '%s\n' "$rows" |
 awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
@@ -148,12 +185,12 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
 		here = ($2 == cwd) ? 0 : 1
-		open = ($5 == 0) ? 0 : 1
-		# An open session cannot be attached a second time without stealing it,
-		# so it sorts below the free ones and renders dim.
-		row = sprintf("%s %-26s %8s  %s", (here ? " " : "*"), dir, (open ? "open" : ago($3)), $6)
-		if (open) row = "\033[2m" row "\033[0m"
-		printf "%d\t%s\t%s\t%s\n", here * 2 + open, $3, $1, row
+		# Free sessions first, then the ones open elsewhere (which have to be
+		# stolen), then transcripts with no session left to attach to.
+		state = ($5 == 1) ? "open" : (($5 == 2) ? "ended" : "")
+		row = sprintf("%s %-24s %-6s %8s  %s", (here ? " " : "*"), dir, state, ago($3), $6)
+		if ($5 != 0) row = "\033[2m" row "\033[0m"
+		printf "%d\t%s\t%s\t%s\n", here * 3 + $5, $3, $1, row
 	}' |
 sort -t"$tab" -k1,1n -k2,2n |
 cut -f2,3,4 |

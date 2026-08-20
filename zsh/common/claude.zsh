@@ -17,21 +17,21 @@ _cc_session() {
 	print -r -- "cc-${base}-${hash:0:6}"
 }
 
-# On exit, tmux restores the terminal to its pre-launch state, discarding
-# Claude's parting output (the resume hint). Capture the pane's visible text
-# just before the session dies and replay it into the outer terminal, so
-# quitting matches bare `claude`: no extra keypress, hint still on screen.
-# Detaching (cmd-Q) never reaches the capture, so it stays silent.
-_cc_flush() {
-	local f="${TMPDIR:-/tmp}/cc-exit-$1"
-	# Drop trailing blank lines so the prompt lands right under the hint.
-	[[ -s $f ]] && awk 'NF{b=b sep $0; sep="\n"; next}{sep=sep "\n"}END{if(b)print "\n" b}' "$f"
-	rm -f -- "$f"
+# tmux restores the terminal to its pre-launch state on exit, wiping Claude's
+# parting words along with everything else. Rather than replay that screen,
+# say the one thing worth knowing: the session is over, and the picker will
+# offer its transcript back the next time you run claude here. A session that
+# merely detached is still alive, so it stays quiet.
+_cc_ended() {
+	tmux has-session -t "=$1" 2>/dev/null && return 0
+	print
+	print -r -- "  session ended · run claude in ${2/#$HOME/~} to pick it back up"
 }
 
 # Path to the session-list helper, resolved when this file is sourced.
 _CC_SESSIONS=${0:A:h}/cc-sessions
 _CC_PREVIEW=${0:A:h}/cc-preview
+_CC_KILL=${0:A:h}/cc-kill
 
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
@@ -56,11 +56,11 @@ _cc_pick() {
 		--delimiter=$'\t' --with-nth=3.. --no-multi --ansi \
 		--height=70% --layout=reverse --border=rounded \
 		--prompt='claude ❯ ' \
-		--header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\ndim = open in another window; resuming steals it back' \
-		--preview=${(q)_CC_PREVIEW}' {1}' \
+		--header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\nopen = steal it back from the other window   ended = resume the transcript' \
+		--preview="CC_CWD=${(q)PWD} ${(q)_CC_PREVIEW} {1}" \
 		--preview-window='right,50%,wrap,<150(down,55%,wrap)' \
 		--bind='ctrl-n:become(echo __new__)' \
-		--bind="ctrl-x:execute(printf 'kill %s? [y/N] ' {1}; read -r yn; [ \"\$yn\" = y ] && tmux kill-session -t '={1}')+reload($cmd)") || return 1
+		--bind="ctrl-x:execute(${(q)_CC_KILL} {1})+reload($cmd)") || return 1
 
 	print -r -- "${sel%%$'\t'*}"
 }
@@ -112,7 +112,10 @@ claude() {
 	if (( $# == 0 )) && [[ -z $CC_NO_PICK ]]; then
 		local pick
 		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
-		if [[ -n $pick && $pick != __new__ ]]; then
+		if [[ $pick == resume:* ]]; then
+			# No session left to attach to: start a fresh one on the transcript.
+			set -- --resume "${pick#resume:}"
+		elif [[ -n $pick && $pick != __new__ ]]; then
 			# A session open in another window has to be stolen; attaching a second
 			# client would mirror it and force both windows to the smaller size.
 			local steal=
@@ -121,7 +124,7 @@ claude() {
 			[[ $(tmux display -pt "$pick" '#{session_attached}') == 0 ]] || steal=-d
 			tmux attach $steal -t "=$pick"
 			local attach_status=$?
-			_cc_flush "$pick"
+			_cc_ended "$pick" "$PWD"
 			return $attach_status
 		fi
 	else
@@ -140,10 +143,7 @@ claude() {
 	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
 	# quotes each element and joins with spaces, which is what sh needs.
 	local -a a=("$@")
-	local cap="${TMPDIR:-/tmp}/cc-exit-$s"
-	rm -f -- "$cap"
 	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
-	run+="; _cc_status=\$?; tmux capture-pane -p > ${(q)cap} 2>/dev/null; exit \$_cc_status"
 	# -e explicitly: a new session's env otherwise comes from the tmux server,
 	# which may predate this shell and carry the wrong account.
 	tmux new-session -s "$s" -c "$PWD" \
@@ -151,7 +151,7 @@ claude() {
 		-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
 		"$run"
 	local status=$?
-	_cc_flush "$s"
+	_cc_ended "$s" "$PWD"
 	return $status
 }
 

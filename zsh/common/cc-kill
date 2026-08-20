@@ -1,0 +1,22 @@
+#!/bin/sh
+# ctrl-x handler for the Claude session picker. Confirms first: an unattended
+# keypress here ends a running Claude, and the row under the cursor is not
+# always the row you think it is.
+
+case "$1" in
+	''|__new__)
+		printf 'Nothing to kill on this row. Press enter. '
+		read -r _
+		exit 0
+		;;
+	resume:*)
+		printf 'That session has already ended; its transcript stays. Press enter. '
+		read -r _
+		exit 0
+		;;
+esac
+
+printf 'Kill %s? [y/N] ' "$1"
+read -r answer
+[ "$answer" = y ] || [ "$answer" = Y ] || exit 0
+tmux kill-session -t "=$1" 2>/dev/null

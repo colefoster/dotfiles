@@ -15,11 +15,20 @@ if [ "$name" = __new__ ] || [ -z "$name" ]; then
 	exit 0
 fi
 
-dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)
+case "$name" in
+	resume:*)
+		dir=${CC_CWD:-$PWD}
+		label="ended · resuming starts a new window"
+		;;
+	*)
+		dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)
+		label=$name
+		[ "$(tmux display -pt "$name" '#{session_attached}' 2>/dev/null)" = 0 ] ||
+			label="$name · open in another window"
+		;;
+esac
 case "$dir" in "$HOME"*) dir="~${dir#"$HOME"}" ;; esac
-state=
-[ "$(tmux display -pt "$name" '#{session_attached}' 2>/dev/null)" = 0 ] || state=' · open in another window'
-printf '%s\n%s%s\n' "${dir:-$name}" "$name" "$state"
+printf '%s\n%s\n' "${dir:-$name}" "$label"
 
 "$here/cc-sessions" --turns "$name" "$turns" |
 while IFS='	' read -r stamp role text; do
