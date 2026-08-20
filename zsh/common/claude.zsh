@@ -32,6 +32,26 @@ _cc_flush() {
 # Path to the session-list helper, resolved when this file is sourced.
 _CC_SESSIONS=${0:A:h}/cc-sessions
 
+# Reap detached sessions nobody has attached to in CC_PURGE_DAYS days (default
+# 10; set 0 to disable). Killing a session ends its Claude process, but the
+# transcript is already on disk, so `claude --resume` in that directory still
+# brings the conversation back.
+_cc_purge() {
+	local days=${CC_PURGE_DAYS:-10}
+	(( days > 0 )) || return 0
+	local cutoff=$(( $(date +%s) - days * 86400 ))
+	local -a stale
+	stale=("${(@f)$(tmux ls -F '#{session_name} #{session_attached} #{session_last_attached} #{session_created}' 2>/dev/null |
+		awk -v cutoff=$cutoff '$1 ~ /^cc-/ && $2 == 0 && ($3 > 0 ? $3 : $4) < cutoff { print $1 }')}")
+	stale=(${stale:#})
+	(( ${#stale} )) || return 0
+	local name
+	for name in $stale; do
+		tmux kill-session -t "=$name" 2>/dev/null
+	done
+	print -u2 "claude: reaped ${#stale} session(s) untouched for ${days}+ days"
+}
+
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
 # the user cancels. Falls back to __new__ when fzf is missing or nothing is
@@ -75,6 +95,8 @@ _cc_pick() {
 #                       never silently swallowed
 #   one-shot / non-TUI  runs bare — nothing worth keeping alive
 #
+# Every launch first reaps sessions untouched for CC_PURGE_DAYS days.
+#
 # Work dirs get their own config dir (separate login/auth/history) so the
 # Blockskye account never bleeds into personal projects. The label is only
 # cosmetic — the status line reads it to show which account is in use.
@@ -106,6 +128,7 @@ claude() {
 	fi
 
 	local s=$(_cc_session)
+	_cc_purge
 	if (( $# == 0 )) && [[ -z $CC_NO_PICK ]]; then
 		local pick
 		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
