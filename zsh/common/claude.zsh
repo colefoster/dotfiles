@@ -17,6 +17,18 @@ _cc_session() {
 	print -r -- "cc-${base}-${hash:0:6}"
 }
 
+# On exit, tmux restores the terminal to its pre-launch state, discarding
+# Claude's parting output (the resume hint). Capture the pane's visible text
+# just before the session dies and replay it into the outer terminal, so
+# quitting matches bare `claude`: no extra keypress, hint still on screen.
+# Detaching (cmd-Q) never reaches the capture, so it stays silent.
+_cc_flush() {
+	local f="${TMPDIR:-/tmp}/cc-exit-$1"
+	# Drop trailing blank lines so the prompt lands right under the hint.
+	[[ -s $f ]] && awk 'NF{b=b sep $0; sep="\n"; next}{sep=sep "\n"}END{if(b)print "\n" b}' "$f"
+	rm -f -- "$f"
+}
+
 # Run claude inside a per-directory tmux session so quitting the terminal
 # (cmd-Q) detaches instead of killing the session.
 #
@@ -52,7 +64,7 @@ claude() {
 			if [[ $(tmux display -p -t "=$s" '#{session_attached}') == 0 ]]; then
 				tmux attach -t "=$s"
 				local attach_status=$?
-				clear
+				_cc_flush "$s"
 				return $attach_status
 			fi
 			print -u2 "claude: $s is open in another window — starting a new session (ccl -s to steal it)"
@@ -68,13 +80,13 @@ claude() {
 	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
 	# quotes each element and joins with spaces, which is what sh needs.
 	local -a a=("$@")
-	# Keep the pane open after Claude exits so its final resume command remains
-	# visible instead of being replaced immediately by tmux's `[exited]` notice.
+	local cap="${TMPDIR:-/tmp}/cc-exit-$s"
+	rm -f -- "$cap"
 	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
-	run+="; _cc_status=\$?; printf '\\nPress Enter to return to the shell...'; read -r _cc_reply; exit \$_cc_status"
+	run+="; _cc_status=\$?; tmux capture-pane -p > ${(q)cap} 2>/dev/null; exit \$_cc_status"
 	tmux new-session -s "$s" -c "$PWD" "$run"
 	local status=$?
-	clear
+	_cc_flush "$s"
 	return $status
 }
 
