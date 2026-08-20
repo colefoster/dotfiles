@@ -1,0 +1,50 @@
+#!/bin/sh
+# Hand this directory's work to a fresh Claude session: start one seeded with a
+# handoff prompt, move the terminal to it, and end the session that called us.
+#
+#   cc-handoff <prompt-file>
+#
+# Meant to be run by Claude itself from inside a wrapped session, so the close
+# of one session is the open of the next with no copy-paste in between.
+
+file=$1
+if [ ! -s "$file" ]; then
+	echo "cc-handoff: need a readable, non-empty prompt file" >&2
+	exit 1
+fi
+if [ -z "$TMUX" ]; then
+	echo "cc-handoff: only works inside a tmux-wrapped session" >&2
+	exit 1
+fi
+
+old=$(tmux display -p '#{session_name}')
+dir=$PWD
+
+# Same naming as the claude() wrapper: cc-<basename>-<hash>, first free suffix.
+base=$(printf '%s' "${dir##*/}" | tr -c 'a-zA-Z0-9_-' '-')
+hash=$(printf '%s' "$dir" | cksum | cut -d' ' -f1 | cut -c1-6)
+new="cc-$base-$hash"
+n=2
+while tmux has-session -t "=$new" 2>/dev/null; do
+	new="cc-$base-$hash-$n"
+	n=$((n + 1))
+done
+
+# Park the prompt somewhere stable: the new session reads it at startup, and it
+# outlives this session for anyone who wants to see what was handed over.
+mkdir -p "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/handoffs"
+seed="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/handoffs/$new.md"
+cat "$file" > "$seed"
+
+tmux new-session -d -s "$new" -c "$dir" \
+	-e "CLAUDE_CONFIG_DIR=${CLAUDE_CONFIG_DIR:-$HOME/.claude}" \
+	-e "CLAUDE_ACCOUNT_LABEL=${CLAUDE_ACCOUNT_LABEL:-Personal}" \
+	"claude --dangerously-skip-permissions \"\$(cat '$seed')\"" || exit 1
+
+tmux switch-client -t "=$new" 2>/dev/null
+
+# Kill the old session from the server, not from here: this script is running
+# inside the session being killed, and would take the kill command with it.
+tmux run-shell -b "sleep 2; tmux kill-session -t '=$old'" 2>/dev/null
+
+printf 'handed off to %s\n' "$new"
