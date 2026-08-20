@@ -1,0 +1,39 @@
+#!/bin/sh
+# List resumable Claude tmux sessions for the picker in claude.zsh.
+#
+# Output is one row per line: <session-name>\t<display text>. The first row is
+# always the synthetic __new__ entry, so fzf's reload binding keeps it after a
+# kill. Sessions whose working directory matches CC_CWD sort first, then the
+# most recently attached. Timestamps use session_last_attached, not
+# session_activity: a detached Claude keeps emitting output, so activity says
+# nothing about when you last looked at it.
+
+cwd=${CC_CWD:-$PWD}
+case "$cwd" in
+	"$HOME"*) cwd_disp="~${cwd#"$HOME"}" ;;
+	*) cwd_disp="$cwd" ;;
+esac
+printf '__new__\t+ %-40s %10s\n' "$cwd_disp" 'new'
+
+tmux ls -F '#{session_name}	#{session_path}	#{session_attached}	#{session_last_attached}	#{session_created}' 2>/dev/null |
+awk -F'\t' -v cwd="$cwd" -v home="$HOME" -v now="$(date +%s)" '
+	function ago(a) {
+		if (a < 3600)  return int(a / 60) "m ago"
+		if (a < 86400) return int(a / 3600) "h ago"
+		return int(a / 86400) "d ago"
+	}
+	$1 ~ /^cc-/ && $3 == 0 {
+		dir = $2
+		if (index(dir, home) == 1) dir = "~" substr(dir, length(home) + 1)
+		# Sibling sessions share a directory, so surface the -N suffix that tells
+		# them apart. The 6-char hash is the last segment on a base session.
+		k = split($1, part, "-")
+		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
+			dir = dir " #" part[k]
+		here = ($2 == cwd) ? 0 : 1
+		# A session detached since birth has last_attached 0; fall back to created.
+		age = now - ($4 > 0 ? $4 : $5)
+		printf "%d\t%d\t%s\t%s %-40s %10s\n", here, age, $1, (here ? " " : "*"), dir, ago(age)
+	}' |
+sort -t'	' -k1,1n -k2,2n |
+cut -f3,4

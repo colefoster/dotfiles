@@ -29,12 +29,48 @@ _cc_flush() {
 	rm -f -- "$f"
 }
 
+# Path to the session-list helper, resolved when this file is sourced.
+_CC_SESSIONS=${0:A:h}/cc-sessions
+
+# Picker shown when `claude` runs bare: choose a detached session to resume, or
+# start a fresh one. Prints the chosen session name or __new__; returns 1 when
+# the user cancels. Falls back to __new__ when fzf is missing or nothing is
+# resumable, so the picker never stands between you and a new session.
+_cc_pick() {
+	local cmd="CC_CWD=${(q)PWD} ${(q)_CC_SESSIONS}"
+	if ! command -v fzf >/dev/null || [[ ! -x $_CC_SESSIONS ]]; then
+		print -r -- __new__
+		return 0
+	fi
+
+	local -a rows=("${(@f)$(eval $cmd)}")
+	# Row 1 is always __new__; anything less means there is nothing to resume.
+	if (( ${#rows} < 2 )); then
+		print -r -- __new__
+		return 0
+	fi
+
+	local sel
+	sel=$(print -rl -- "${rows[@]}" | fzf \
+		--delimiter=$'\t' --with-nth=2.. --no-multi \
+		--height=70% --layout=reverse --border=rounded \
+		--prompt='claude ❯ ' \
+		--header='enter resume   ctrl-n new   ctrl-x kill   esc cancel' \
+		--preview='[ {1} = __new__ ] && echo "Start a new Claude session here." || tmux capture-pane -pt {1}' \
+		--preview-window='right,62%,wrap' \
+		--bind='ctrl-n:become(echo __new__)' \
+		--bind="ctrl-x:execute(printf 'kill %s? [y/N] ' {1}; read -r yn; [ \"\$yn\" = y ] && tmux kill-session -t '={1}')+reload($cmd)") || return 1
+
+	print -r -- "${sel%%$'\t'*}"
+}
+
 # Run claude inside a per-directory tmux session so quitting the terminal
 # (cmd-Q) detaches instead of killing the session.
 #
-#   claude              reattach the dir's detached session, else start one;
-#                       if it's already open in another window, start a sibling
-#                       rather than mirroring it
+#   claude              open the picker: resume any detached session (this
+#                       directory's first) or start a new one. With no
+#                       resumable session, or CC_NO_PICK=1, it starts one
+#                       straight away.
 #   claude <args...>    always a fresh session, so --resume/--model/etc are
 #                       never silently swallowed
 #   one-shot / non-TUI  runs bare — nothing worth keeping alive
@@ -70,27 +106,24 @@ claude() {
 	fi
 
 	local s=$(_cc_session)
-	if (( $# == 0 )); then
-		if tmux has-session -t "=$s" 2>/dev/null; then
-			# Attaching a second client to a live session mirrors it (and forces
-			# both windows to the smaller size). Only reattach if nothing else
-			# is watching; otherwise fall through and start a sibling session.
-			if [[ $(tmux display -p -t "=$s" '#{session_attached}') == 0 ]]; then
-				tmux attach -t "=$s"
-				local attach_status=$?
-				_cc_flush "$s"
-				return $attach_status
-			fi
-			print -u2 "claude: $s is open in another window — starting a new session (ccl -s to steal it)"
+	if (( $# == 0 )) && [[ -z $CC_NO_PICK ]]; then
+		local pick
+		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
+		if [[ -n $pick && $pick != __new__ ]]; then
+			tmux attach -t "=$pick"
+			local attach_status=$?
+			_cc_flush "$pick"
+			return $attach_status
 		fi
 	fi
-	if (( $# > 0 )) || tmux has-session -t "=$s" 2>/dev/null; then
-		local n=2
-		while tmux has-session -t "=$s" 2>/dev/null; do
-			s="$(_cc_session)-$n"
-			(( n++ ))
-		done
-	fi
+	# Attaching a second client to a live session mirrors it (and forces both
+	# windows to the smaller size), so an attached session is never reused: take
+	# the next free sibling name instead.
+	local n=2
+	while tmux has-session -t "=$s" 2>/dev/null; do
+		s="$(_cc_session)-$n"
+		(( n++ ))
+	done
 	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
 	# quotes each element and joins with spaces, which is what sh needs.
 	local -a a=("$@")
