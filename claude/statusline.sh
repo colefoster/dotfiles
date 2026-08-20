@@ -84,7 +84,14 @@ if [ -n "$DIR" ] && git -C "$DIR" rev-parse --git-dir >/dev/null 2>&1; then
 fi
 
 # Line 1: model, context size, folder, git, version
-LINE1="${C}${B}${MODEL}${RST} ${D}(${CTX_LABEL})${RST}  ${DIR##*/}"
+ACCT=""
+case "${CLAUDE_ACCOUNT_LABEL:-}" in
+  "") ;;
+  Personal) ACCT="${D}${CLAUDE_ACCOUNT_LABEL}${RST}  " ;;
+  *) ACCT="\033[35m${B}${CLAUDE_ACCOUNT_LABEL}${RST}  " ;;
+esac
+
+LINE1="${ACCT}${C}${B}${MODEL}${RST} ${D}(${CTX_LABEL})${RST}  ${DIR##*/}"
 [ -n "$BRANCH" ] && LINE1="${LINE1}  ${D}on${RST} ${BRANCH} ${GIT_INFO}"
 LINE1="${LINE1}  ${D}v${VERSION}${RST}"
 

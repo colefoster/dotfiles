@@ -38,7 +38,21 @@ _cc_flush() {
 #   claude <args...>    always a fresh session, so --resume/--model/etc are
 #                       never silently swallowed
 #   one-shot / non-TUI  runs bare — nothing worth keeping alive
+#
+# Work dirs get their own config dir (separate login/auth/history) so the
+# Blockskye account never bleeds into personal projects. The label is only
+# cosmetic — the status line reads it to show which account is in use.
 claude() {
+	local -x CLAUDE_CONFIG_DIR CLAUDE_ACCOUNT_LABEL
+	case ${PWD:l} in
+		${HOME:l}/work|${HOME:l}/work/*)
+			CLAUDE_CONFIG_DIR=$HOME/.claude-blockskye
+			CLAUDE_ACCOUNT_LABEL=Blockskye ;;
+		*)
+			CLAUDE_CONFIG_DIR=$HOME/.claude
+			CLAUDE_ACCOUNT_LABEL=Personal ;;
+	esac
+
 	if [[ -n $TMUX || ! -o interactive ]] || ! command -v tmux >/dev/null; then
 		command claude --dangerously-skip-permissions "$@"
 		return
@@ -84,7 +98,12 @@ claude() {
 	rm -f -- "$cap"
 	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
 	run+="; _cc_status=\$?; tmux capture-pane -p > ${(q)cap} 2>/dev/null; exit \$_cc_status"
-	tmux new-session -s "$s" -c "$PWD" "$run"
+	# -e explicitly: a new session's env otherwise comes from the tmux server,
+	# which may predate this shell and carry the wrong account.
+	tmux new-session -s "$s" -c "$PWD" \
+		-e "CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR" \
+		-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
+		"$run"
 	local status=$?
 	_cc_flush "$s"
 	return $status
