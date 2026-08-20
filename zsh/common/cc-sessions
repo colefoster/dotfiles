@@ -67,6 +67,32 @@ if [ "$1" = --msg ]; then
 	exit $?
 fi
 
+# The same filter, but keeping both sides and tagging who spoke. Used by
+# cc-preview to show the tail of the conversation.
+JQ_TURNS='fromjson?
+	| select((.isSidechain != true) and (.isMeta != true) and (has("toolUseResult") | not))
+	| select(.type == "user" or .type == "assistant")
+	| (.message.content | if type == "string" then . else ([.[] | select(.type == "text").text] | join(" ")) end) as $t
+	| select($t != null)
+	| select($t | test("^\\s*(<task-notification|<system-reminder|<command-|<local-command|<bash-|\\[Request interrupted)") | not)
+	| ($t | gsub("\\s+"; " ") | sub("^ +"; "") | sub(" +$"; "")) as $c
+	| select($c != "")
+	| "\(.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)\t\(.type)\t\($c[0:400])"'
+
+# Print the last N turns of one session, newest first.
+cc_turns() {
+	sid=$(printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }')
+	[ -n "$sid" ] || return 1
+	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
+	[ -n "$file" ] || return 1
+	tail -c 262144 "$file" 2>/dev/null | tail -r | jq -Rrc "$JQ_TURNS" 2>/dev/null | head -"${2:-8}"
+}
+
+if [ "$1" = --turns ]; then
+	cc_turns "$2" "$3"
+	exit $?
+fi
+
 rows=$(
 	tmux ls -F "#{session_name}${tab}#{session_path}${tab}#{session_attached}${tab}#{session_last_attached}${tab}#{session_created}" 2>/dev/null |
 	while IFS="$tab" read -r name path attached last created; do
@@ -104,7 +130,7 @@ case "$cwd" in
 	"$HOME"*) cwd_disp="~${cwd#"$HOME"}" ;;
 	*) cwd_disp="$cwd" ;;
 esac
-printf '__new__\t0\t+ %-30s %9s  %s\n' "$cwd_disp" '' 'start a new session here'
+printf '__new__\t0\t+ %-26s %8s  %s\n' "$cwd_disp" '' 'start a new session here'
 
 printf '%s\n' "$rows" |
 awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
@@ -125,7 +151,7 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		open = ($5 == 0) ? 0 : 1
 		# An open session cannot be attached a second time without stealing it,
 		# so it sorts below the free ones and renders dim.
-		row = sprintf("%s %-30s %9s  %s", (here ? " " : "*"), dir, (open ? "open" : ago($3)), $6)
+		row = sprintf("%s %-26s %8s  %s", (here ? " " : "*"), dir, (open ? "open" : ago($3)), $6)
 		if (open) row = "\033[2m" row "\033[0m"
 		printf "%d\t%s\t%s\t%s\n", here * 2 + open, $3, $1, row
 	}' |

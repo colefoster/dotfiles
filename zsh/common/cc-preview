@@ -1,11 +1,14 @@
 #!/bin/sh
-# fzf preview for the Claude session picker: when you last spoke to this
-# session, what you said, and the screen it is sitting on.
+# fzf preview for the Claude session picker: the tail of the conversation, most
+# recent turn first. A raw capture-pane dump was the obvious thing to show and
+# the wrong one — box rules, the status line, and soft-wrap markers crowd out
+# the few words that actually identify a session.
 
 name=$1
 here=$(dirname "$0")
 width=${FZF_PREVIEW_COLUMNS:-80}
-rule=$(awk -v w="$width" 'BEGIN { while (i++ < w) printf "-" }')
+turns=${CC_PREVIEW_TURNS:-8}
+lines=${CC_PREVIEW_LINES:-4}
 
 if [ "$name" = __new__ ] || [ -z "$name" ]; then
 	echo "Start a new Claude session here."
@@ -14,22 +17,22 @@ fi
 
 dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)
 case "$dir" in "$HOME"*) dir="~${dir#"$HOME"}" ;; esac
-printf '%s\n%s\n\n' "${dir:-$name}" "$name"
+state=
+[ "$(tmux display -pt "$name" '#{session_attached}' 2>/dev/null)" = 0 ] || state=' · open in another window'
+printf '%s\n%s%s\n' "${dir:-$name}" "$name" "$state"
 
-if msg=$("$here/cc-sessions" --msg "$name"); then
-	stamp=${msg%%	*}
-	text=${msg#*	}
-	age=$(( $(date +%s) - stamp ))
-	if [ "$age" -lt 86400 ]; then
-		when=$(date -r "$stamp" '+%-I:%M %p')
+"$here/cc-sessions" --turns "$name" "$turns" |
+while IFS='	' read -r stamp role text; do
+	[ -n "$stamp" ] || continue
+	when=$(date -r "$stamp" '+%-I:%M %p')
+	# Your turns are the ones that identify a session, so they get the room and
+	# the brighter ink; Claude's are context, trimmed to a couple of lines.
+	if [ "$role" = user ]; then
+		printf '\n\033[1myou\033[0m  %s\n' "$when"
+		printf '%s\n' "$text" | sed 's/\*\*//g' | fold -s -w "$((width - 2))" | head -"$lines" | sed 's/^/  /'
 	else
-		when=$(date -r "$stamp" '+%a %b %-d, %-I:%M %p')
+		printf '\n\033[2mclaude  %s\n' "$when"
+		printf '%s\n' "$text" | sed 's/\*\*//g' | fold -s -w "$((width - 2))" | head -2 | sed 's/^/  /'
+		printf '\033[0m'
 	fi
-	printf 'your last message   %s\n\n' "$when"
-	printf '%s\n\n' "$text" | fold -s -w "$((width - 2))" | sed 's/^/  /'
-else
-	printf 'no transcript found for this session\n\n'
-fi
-
-printf '%s\n' "$rule"
-tmux capture-pane -pt "$name" 2>/dev/null
+done

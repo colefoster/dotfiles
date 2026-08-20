@@ -58,7 +58,7 @@ _cc_pick() {
 		--prompt='claude ❯ ' \
 		--header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\ndim = open in another window; resuming steals it back' \
 		--preview=${(q)_CC_PREVIEW}' {1}' \
-		--preview-window='right,52%,wrap' \
+		--preview-window='right,50%,wrap,<150(down,55%,wrap)' \
 		--bind='ctrl-n:become(echo __new__)' \
 		--bind="ctrl-x:execute(printf 'kill %s? [y/N] ' {1}; read -r yn; [ \"\$yn\" = y ] && tmux kill-session -t '={1}')+reload($cmd)") || return 1
 
