@@ -1,28 +1,120 @@
 #!/bin/sh
-# List resumable Claude tmux sessions for the picker in claude.zsh.
+# List resumable Claude tmux sessions for the picker in claude.zsh, and reap the
+# ones nobody has touched in a while.
 #
-# Output is one row per line: <session-name>\t<display text>. The first row is
-# always the synthetic __new__ entry, so fzf's reload binding keeps it after a
-# kill. Sessions whose working directory matches CC_CWD sort first, then the
-# most recently attached. Timestamps use session_last_attached, not
-# session_activity: a detached Claude keeps emitting output, so activity says
-# nothing about when you last looked at it.
+# Output is one row per line:
+#
+#   <session-name>\t<age-seconds>\t<display text>
+#
+# The first row is always the synthetic __new__ entry, so fzf's reload binding
+# keeps it after a kill. Sessions for CC_CWD sort first, then by age.
+#
+# Age is the time since your last message in that session, not tmux's
+# session_activity (a detached Claude keeps emitting output) and not
+# last_attached (which ignores everything typed after the attach). Finding it
+# means walking from the tmux session to the transcript:
+#
+#   ~/.claude*/sessions/<pid>.json    .tmux -> tmux session name, .sessionId
+#   ~/.claude*/projects/*/<id>.jsonl  the transcript itself
+#
+# Work directories use a separate config root, so both are searched.
 
+days=${CC_PURGE_DAYS:-10}
+now=$(date +%s)
 cwd=${CC_CWD:-$PWD}
+tab=$(printf '\t')
+
+roots="$HOME/.claude $HOME/.claude-blockskye"
+
+# tmux session name -> claude session id, for every live Claude that recorded one.
+map=$(
+	for root in $roots; do
+		[ -d "$root/sessions" ] || continue
+		jq -r 'select(.tmux and .sessionId) | "\(.tmux | split(":")[0])\t\(.sessionId)"' \
+			"$root"/sessions/*.json 2>/dev/null
+	done
+)
+index=$(find $roots -maxdepth 3 -path '*/projects/*' -name '*.jsonl' 2>/dev/null)
+
+# The last thing you actually typed, newest first. Tool results, sidechain
+# traffic, and the harness's synthetic turns are all somebody else talking.
+JQ='fromjson?
+	| select(.type == "user" and (has("toolUseResult") | not) and (.isMeta != true) and (.isSidechain != true))
+	| (.message.content | if type == "string" then . else ([.[] | select(.type == "text").text] | join(" ")) end) as $t
+	| select($t != null)
+	| select($t | test("^\\s*(<task-notification|<system-reminder|<command-|<local-command|<bash-|\\[Request interrupted)") | not)
+	| ($t | gsub("\\s+"; " ") | sub("^ +"; "") | sub(" +$"; "")) as $c
+	| select($c != "")
+	| "\(.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)\t\($c[0:160])"'
+
+# Print "<epoch>\t<text>" for one tmux session, or nothing when it has no
+# transcript. Used by the row loop below and by cc-preview.
+cc_last_message() {
+	sid=$(printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }')
+	[ -n "$sid" ] || return 1
+	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
+	[ -n "$file" ] || return 1
+	# Most transcripts answer from the tail; only re-read the whole file when
+	# the last chunk is nothing but tool traffic.
+	msg=$(tail -c 262144 "$file" 2>/dev/null | tail -r | jq -Rrc "$JQ" 2>/dev/null | head -1)
+	[ -n "$msg" ] || msg=$(tail -r "$file" 2>/dev/null | jq -Rrc "$JQ" 2>/dev/null | head -1)
+	[ -n "$msg" ] || return 1
+	printf '%s\n' "$msg"
+}
+
+if [ "$1" = --msg ]; then
+	cc_last_message "$2"
+	exit $?
+fi
+
+rows=$(
+	tmux ls -F "#{session_name}${tab}#{session_path}${tab}#{session_attached}${tab}#{session_last_attached}${tab}#{session_created}" 2>/dev/null |
+	while IFS="$tab" read -r name path attached last created; do
+		[ "${name#cc-}" != "$name" ] || continue
+		[ "$attached" = 0 ] || continue
+
+		# Fall back to tmux's own clock when there is no transcript to read.
+		stamp=$last
+		[ "$stamp" -gt 0 ] 2>/dev/null || stamp=$created
+		text=
+
+		if msg=$(cc_last_message "$name"); then
+			stamp=${msg%%"$tab"*}
+			text=${msg#*"$tab"}
+		fi
+
+		# Reap on the most recent sign of life, message or attach: a session you
+		# opened yesterday to resume an old conversation is still in use.
+		recent=$stamp
+		[ "$last" -gt "$recent" ] 2>/dev/null && recent=$last
+		printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$text"
+	done
+)
+
+# Reap first, so a session killed here never appears in the list below.
+if [ "$days" != 0 ]; then
+	cutoff=$((days * 86400))
+	printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $4 > c { print $1 }' |
+	while read -r stale; do
+		tmux kill-session -t "=$stale" 2>/dev/null
+	done
+	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $4 <= c')
+fi
+
 case "$cwd" in
 	"$HOME"*) cwd_disp="~${cwd#"$HOME"}" ;;
 	*) cwd_disp="$cwd" ;;
 esac
-printf '__new__\t+ %-40s %10s\n' "$cwd_disp" 'new'
+printf '__new__\t0\t+ %-30s %9s  %s\n' "$cwd_disp" '' 'start a new session here'
 
-tmux ls -F '#{session_name}	#{session_path}	#{session_attached}	#{session_last_attached}	#{session_created}' 2>/dev/null |
-awk -F'\t' -v cwd="$cwd" -v home="$HOME" -v now="$(date +%s)" '
+printf '%s\n' "$rows" |
+awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 	function ago(a) {
 		if (a < 3600)  return int(a / 60) "m ago"
 		if (a < 86400) return int(a / 3600) "h ago"
 		return int(a / 86400) "d ago"
 	}
-	$1 ~ /^cc-/ && $3 == 0 {
+	$1 != "" {
 		dir = $2
 		if (index(dir, home) == 1) dir = "~" substr(dir, length(home) + 1)
 		# Sibling sessions share a directory, so surface the -N suffix that tells
@@ -31,9 +123,8 @@ awk -F'\t' -v cwd="$cwd" -v home="$HOME" -v now="$(date +%s)" '
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
 		here = ($2 == cwd) ? 0 : 1
-		# A session detached since birth has last_attached 0; fall back to created.
-		age = now - ($4 > 0 ? $4 : $5)
-		printf "%d\t%d\t%s\t%s %-40s %10s\n", here, age, $1, (here ? " " : "*"), dir, ago(age)
+		printf "%d\t%s\t%s\t%s %-30s %9s  %s\n", here, $3, $1, (here ? " " : "*"), dir, ago($3), $5
 	}' |
-sort -t'	' -k1,1n -k2,2n |
-cut -f3,4
+sort -t"$tab" -k1,1n -k2,2n |
+cut -f2,3,4 |
+awk -F"$tab" '{ printf "%s\t%s\t%s\n", $2, $1, $3 }'

@@ -1,0 +1,35 @@
+#!/bin/sh
+# fzf preview for the Claude session picker: when you last spoke to this
+# session, what you said, and the screen it is sitting on.
+
+name=$1
+here=$(dirname "$0")
+width=${FZF_PREVIEW_COLUMNS:-80}
+rule=$(awk -v w="$width" 'BEGIN { while (i++ < w) printf "-" }')
+
+if [ "$name" = __new__ ] || [ -z "$name" ]; then
+	echo "Start a new Claude session here."
+	exit 0
+fi
+
+dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)
+case "$dir" in "$HOME"*) dir="~${dir#"$HOME"}" ;; esac
+printf '%s\n%s\n\n' "${dir:-$name}" "$name"
+
+if msg=$("$here/cc-sessions" --msg "$name"); then
+	stamp=${msg%%	*}
+	text=${msg#*	}
+	age=$(( $(date +%s) - stamp ))
+	if [ "$age" -lt 86400 ]; then
+		when=$(date -r "$stamp" '+%-I:%M %p')
+	else
+		when=$(date -r "$stamp" '+%a %b %-d, %-I:%M %p')
+	fi
+	printf 'your last message   %s\n\n' "$when"
+	printf '%s\n\n' "$text" | fold -s -w "$((width - 2))" | sed 's/^/  /'
+else
+	printf 'no transcript found for this session\n\n'
+fi
+
+printf '%s\n' "$rule"
+tmux capture-pane -pt "$name" 2>/dev/null

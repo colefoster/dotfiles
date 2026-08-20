@@ -31,26 +31,7 @@ _cc_flush() {
 
 # Path to the session-list helper, resolved when this file is sourced.
 _CC_SESSIONS=${0:A:h}/cc-sessions
-
-# Reap detached sessions nobody has attached to in CC_PURGE_DAYS days (default
-# 10; set 0 to disable). Killing a session ends its Claude process, but the
-# transcript is already on disk, so `claude --resume` in that directory still
-# brings the conversation back.
-_cc_purge() {
-	local days=${CC_PURGE_DAYS:-10}
-	(( days > 0 )) || return 0
-	local cutoff=$(( $(date +%s) - days * 86400 ))
-	local -a stale
-	stale=("${(@f)$(tmux ls -F '#{session_name} #{session_attached} #{session_last_attached} #{session_created}' 2>/dev/null |
-		awk -v cutoff=$cutoff '$1 ~ /^cc-/ && $2 == 0 && ($3 > 0 ? $3 : $4) < cutoff { print $1 }')}")
-	stale=(${stale:#})
-	(( ${#stale} )) || return 0
-	local name
-	for name in $stale; do
-		tmux kill-session -t "=$name" 2>/dev/null
-	done
-	print -u2 "claude: reaped ${#stale} session(s) untouched for ${days}+ days"
-}
+_CC_PREVIEW=${0:A:h}/cc-preview
 
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
@@ -72,12 +53,12 @@ _cc_pick() {
 
 	local sel
 	sel=$(print -rl -- "${rows[@]}" | fzf \
-		--delimiter=$'\t' --with-nth=2.. --no-multi \
+		--delimiter=$'\t' --with-nth=3.. --no-multi \
 		--height=70% --layout=reverse --border=rounded \
 		--prompt='claude ❯ ' \
 		--header='enter resume   ctrl-n new   ctrl-x kill   esc cancel' \
-		--preview='[ {1} = __new__ ] && echo "Start a new Claude session here." || tmux capture-pane -pt {1}' \
-		--preview-window='right,62%,wrap' \
+		--preview=${(q)_CC_PREVIEW}' {1}' \
+		--preview-window='right,52%,wrap' \
 		--bind='ctrl-n:become(echo __new__)' \
 		--bind="ctrl-x:execute(printf 'kill %s? [y/N] ' {1}; read -r yn; [ \"\$yn\" = y ] && tmux kill-session -t '={1}')+reload($cmd)") || return 1
 
@@ -128,7 +109,6 @@ claude() {
 	fi
 
 	local s=$(_cc_session)
-	_cc_purge
 	if (( $# == 0 )) && [[ -z $CC_NO_PICK ]]; then
 		local pick
 		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
@@ -138,6 +118,10 @@ claude() {
 			_cc_flush "$pick"
 			return $attach_status
 		fi
+	else
+		# The picker reaps stale sessions as a side effect of listing them; when
+		# it is skipped, do that in the background so it costs no startup time.
+		(${_CC_SESSIONS} >/dev/null 2>&1 &) 2>/dev/null
 	fi
 	# Attaching a second client to a live session mirrors it (and forces both
 	# windows to the smaller size), so an attached session is never reused: take
