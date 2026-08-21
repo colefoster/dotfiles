@@ -43,19 +43,8 @@
       "mcp__playwright__*"
     ]
   },
-  "model": "claude-opus-5",
+  "model": "opus[1m]",
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/auto-push.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
@@ -106,6 +95,7 @@
   "effortLevel": "medium",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
   "autoScrollEnabled": true,
   "agentPushNotifEnabled": true
 }
