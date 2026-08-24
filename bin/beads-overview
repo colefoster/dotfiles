@@ -1,0 +1,282 @@
+#!/usr/bin/env python3
+"""Build a portfolio-level Beads dashboard: one card per project, not a merged issue list.
+
+Reads every ~/Dev/*/.beads/issues.jsonl and writes a single self-contained HTML
+page summarising each project's queue health, plus the repos that have no beads
+database at all. Per-project detail stays in that project's own bv site; this
+page only answers "where should I look first".
+
+Usage: beads-overview [OUT_HTML]   (default /tmp/bv-pages/index.html)
+"""
+import glob
+import html
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+DEV = os.path.expanduser("~/Dev")
+OUT = sys.argv[1] if len(sys.argv) > 1 else "/tmp/bv-pages/index.html"
+NOW = datetime.now(timezone.utc)
+
+
+def parse_ts(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def ago(dt):
+    if dt is None:
+        return "never"
+    days = (NOW - dt).days
+    if days <= 0:
+        hours = int((NOW - dt).total_seconds() // 3600)
+        return f"{hours}h ago" if hours else "just now"
+    if days < 14:
+        return f"{days}d ago"
+    if days < 60:
+        return f"{days // 7}w ago"
+    return f"{days // 30}mo ago"
+
+
+def last_commit(repo):
+    try:
+        out = subprocess.run(
+            ["git", "-C", repo, "log", "-1", "--format=%cI"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return parse_ts(out.stdout.strip())
+    except Exception:
+        return None
+
+
+def load(path):
+    rows = []
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return [r for r in rows if r.get("_type") == "issue"]
+
+
+def summarise(repo, issues):
+    open_ids = {i["id"] for i in issues if i.get("status") == "open"}
+    opens = [i for i in issues if i.get("status") == "open"]
+
+    blocked, ready = [], []
+    for issue in opens:
+        blockers = [
+            d["depends_on_id"] for d in issue.get("dependencies") or []
+            if d.get("type") == "blocks" and d.get("depends_on_id") in open_ids
+        ]
+        (blocked if blockers else ready).append(issue)
+
+    touched = [parse_ts(i.get("updated_at")) for i in issues]
+    touched = [t for t in touched if t]
+    created = [parse_ts(i.get("created_at")) for i in opens]
+    created = [c for c in created if c]
+
+    # Attention score decides card order: P0s dominate, then P1s, then a small
+    # nudge for a queue nobody has touched in a while.
+    p0 = sum(1 for i in opens if i.get("priority") == 0)
+    p1 = sum(1 for i in opens if i.get("priority") == 1)
+    stale_days = (NOW - max(touched)).days if touched else 999
+    score = p0 * 100 + p1 * 10 + min(stale_days, 60)
+
+    types = {}
+    for i in opens:
+        types[i.get("issue_type", "task")] = types.get(i.get("issue_type", "task"), 0) + 1
+
+    return {
+        "name": os.path.basename(repo),
+        "repo": repo,
+        "prefix": (issues[0]["id"].split("-")[0] if issues else "?"),
+        "total": len(issues),
+        "open": len(opens),
+        "closed": sum(1 for i in issues if i.get("status") == "closed"),
+        "ready": len(ready),
+        "blocked": len(blocked),
+        "p0": p0,
+        "p1": p1,
+        "types": types,
+        "last_touch": max(touched) if touched else None,
+        "last_commit": last_commit(repo),
+        "oldest_open": min(created) if created else None,
+        "score": score,
+        "top": sorted(ready, key=lambda i: (i.get("priority", 4), i.get("created_at", "")))[:3],
+        "site": f"/tmp/bv-pages/{os.path.basename(repo)}/index.html",
+        "href": f"./{os.path.basename(repo)}/index.html",
+    }
+
+
+def bar(ready, blocked):
+    total = ready + blocked
+    if not total:
+        return '<div class="bar"><span class="bar-empty">no open issues</span></div>'
+    pct = round(ready / total * 100)
+    return (
+        f'<div class="bar" title="{ready} ready / {blocked} blocked">'
+        f'<div class="bar-ready" style="width:{pct}%"></div></div>'
+    )
+
+
+def card(p):
+    e = html.escape
+    badges = []
+    if p["p0"]:
+        badges.append(f'<span class="badge crit">{p["p0"]} P0</span>')
+    if p["p1"]:
+        badges.append(f'<span class="badge warn">{p["p1"]} P1</span>')
+    if p["blocked"]:
+        badges.append(f'<span class="badge mute">{p["blocked"]} blocked</span>')
+    if not p["open"]:
+        badges.append('<span class="badge good">clear</span>')
+
+    top = "".join(
+        f'<li><span class="pri p{i.get("priority", 4)}">P{i.get("priority", 4)}</span>'
+        f'<span class="tid">{e(i["id"])}</span>{e(i["title"])}</li>'
+        for i in p["top"]
+    ) or '<li class="none">nothing ready</li>'
+
+    types = " · ".join(f"{v} {k}" for k, v in sorted(p["types"].items(), key=lambda kv: -kv[1]))
+    site = f'<a class="open" href="{e(p["href"])}">board →</a>' if os.path.exists(p["site"]) else ""
+
+    return f"""
+    <article class="card{' hot' if p['p0'] else ''}">
+      <header>
+        <h2>{e(p["name"])} <span class="prefix">{e(p["prefix"])}-</span></h2>
+        <div class="badges">{"".join(badges)}</div>
+      </header>
+      <div class="figures">
+        <div class="fig"><b>{p["open"]}</b><span>open</span></div>
+        <div class="fig"><b>{p["ready"]}</b><span>ready</span></div>
+        <div class="fig"><b>{p["closed"]}</b><span>closed</span></div>
+      </div>
+      {bar(p["ready"], p["blocked"])}
+      <ul class="top">{top}</ul>
+      <footer>
+        <span title="last issue write">issues {e(ago(p["last_touch"]))}</span>
+        <span title="last git commit">code {e(ago(p["last_commit"]))}</span>
+        {site}
+      </footer>
+    </article>"""
+
+
+def main():
+    projects = []
+    for path in sorted(glob.glob(os.path.join(DEV, "*", ".beads", "issues.jsonl"))):
+        repo = os.path.dirname(os.path.dirname(path))
+        issues = load(path)
+        projects.append(summarise(repo, issues))
+    projects.sort(key=lambda p: -p["score"])
+
+    tracked = {p["name"] for p in projects}
+    untracked = sorted(
+        os.path.basename(d) for d in glob.glob(os.path.join(DEV, "*"))
+        if os.path.isdir(os.path.join(d, ".git")) and os.path.basename(d) not in tracked
+    )
+
+    t_open = sum(p["open"] for p in projects)
+    t_p0 = sum(p["p0"] for p in projects)
+    t_blocked = sum(p["blocked"] for p in projects)
+    t_ready = sum(p["ready"] for p in projects)
+
+    cards = "".join(card(p) for p in projects) or '<p class="none">No beads databases under ~/Dev.</p>'
+    untracked_html = "".join(f"<span>{html.escape(n)}</span>" for n in untracked)
+
+    doc = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Beads portfolio</title>
+<link rel="icon" href="data:,">
+<style>
+:root {{
+  --bg:#faf9f7; --panel:#fff; --ink:#1c1b19; --dim:#6b6862; --line:#e5e2dc;
+  --crit:#c0392b; --warn:#b7791f; --good:#2f7a4f; --accent:#2b6cb0;
+}}
+@media (prefers-color-scheme:dark) {{
+  :root {{
+    --bg:#141412; --panel:#1d1d1a; --ink:#eceae5; --dim:#918d85; --line:#2e2e2a;
+    --crit:#e8705f; --warn:#d9a441; --good:#69b389; --accent:#7aa9dd;
+  }}
+}}
+* {{ box-sizing:border-box; }}
+body {{ margin:0; padding:2.5rem 2rem 4rem; background:var(--bg); color:var(--ink);
+  font:15px/1.5 ui-sans-serif,-apple-system,"SF Pro Text",system-ui,sans-serif; }}
+h1 {{ font-size:1.4rem; margin:0 0 .2rem; letter-spacing:-.01em; }}
+.sub {{ color:var(--dim); font-size:.85rem; margin:0 0 2rem; }}
+.totals {{ display:flex; gap:2.5rem; flex-wrap:wrap; padding:1.2rem 1.4rem; margin-bottom:2rem;
+  background:var(--panel); border:1px solid var(--line); border-radius:12px; }}
+.totals div {{ display:flex; flex-direction:column; }}
+.totals b {{ font-size:1.9rem; font-weight:620; letter-spacing:-.02em; line-height:1.1; }}
+.totals span {{ font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }}
+.totals .crit b {{ color:var(--crit); }}
+.grid {{ display:grid; gap:1.1rem; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); }}
+.card {{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1.1rem 1.2rem; }}
+.card.hot {{ border-color:var(--crit); }}
+.card header {{ display:flex; justify-content:space-between; align-items:baseline; gap:.6rem; }}
+.card h2 {{ font-size:1.02rem; margin:0; letter-spacing:-.01em; }}
+.prefix {{ color:var(--dim); font-weight:400; font-size:.8rem; margin-left:.4rem;
+  font-family:ui-monospace,SFMono-Regular,monospace; }}
+.badges {{ display:flex; gap:.3rem; flex-wrap:wrap; }}
+.badge {{ font-size:.68rem; padding:.14rem .42rem; border-radius:5px; font-weight:600;
+  letter-spacing:.02em; white-space:nowrap; }}
+.badge.crit {{ background:var(--crit); color:#fff; }}
+.badge.warn {{ color:var(--warn); border:1px solid var(--warn); }}
+.badge.mute {{ color:var(--dim); border:1px solid var(--line); }}
+.badge.good {{ color:var(--good); border:1px solid var(--good); }}
+.figures {{ display:flex; gap:1.6rem; margin:.9rem 0 .6rem; }}
+.fig {{ display:flex; flex-direction:column; }}
+.fig b {{ font-size:1.35rem; font-weight:600; line-height:1.1; }}
+.fig span {{ font-size:.68rem; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }}
+.bar {{ height:5px; border-radius:3px; background:var(--line); overflow:hidden; margin-bottom:.85rem; }}
+.bar-ready {{ height:100%; background:var(--good); }}
+.bar-empty {{ display:none; }}
+.top {{ list-style:none; margin:0 0 .9rem; padding:0; font-size:.83rem; }}
+.top li {{ display:flex; gap:.45rem; align-items:baseline; padding:.22rem 0;
+  border-top:1px solid var(--line); }}
+.top li:first-child {{ border-top:none; }}
+.top li.none {{ color:var(--dim); font-style:italic; }}
+.pri {{ font-size:.64rem; font-weight:700; padding:.08rem .3rem; border-radius:4px;
+  background:var(--line); color:var(--dim); flex:none; }}
+.pri.p0 {{ background:var(--crit); color:#fff; }}
+.pri.p1 {{ color:var(--warn); }}
+.tid {{ font-family:ui-monospace,SFMono-Regular,monospace; font-size:.72rem; color:var(--dim); flex:none; }}
+.card footer {{ display:flex; gap:.9rem; align-items:center; font-size:.72rem; color:var(--dim);
+  border-top:1px solid var(--line); padding-top:.6rem; }}
+.open {{ margin-left:auto; color:var(--accent); text-decoration:none; font-weight:600; }}
+.open:hover {{ text-decoration:underline; }}
+.untracked {{ margin-top:2.5rem; }}
+.untracked h3 {{ font-size:.75rem; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--dim); margin:0 0 .7rem; font-weight:600; }}
+.untracked div {{ display:flex; flex-wrap:wrap; gap:.35rem; }}
+.untracked span {{ font-size:.75rem; color:var(--dim); border:1px solid var(--line);
+  border-radius:5px; padding:.14rem .45rem; font-family:ui-monospace,SFMono-Regular,monospace; }}
+.none {{ color:var(--dim); }}
+</style></head><body>
+<h1>Beads portfolio</h1>
+<p class="sub">{len(projects)} tracked · {len(untracked)} untracked · built {NOW.astimezone().strftime("%Y-%m-%d %H:%M")}</p>
+<section class="totals">
+  <div><b>{t_open}</b><span>open</span></div>
+  <div><b>{t_ready}</b><span>ready</span></div>
+  <div><b>{t_blocked}</b><span>blocked</span></div>
+  <div class="crit"><b>{t_p0}</b><span>P0</span></div>
+</section>
+<section class="grid">{cards}</section>
+<section class="untracked"><h3>No beads database</h3><div>{untracked_html}</div></section>
+</body></html>"""
+
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    with open(OUT, "w") as fh:
+        fh.write(doc)
+    print(f"{OUT}  ({len(projects)} projects, {t_open} open, {t_p0} P0)")
+
+
+if __name__ == "__main__":
+    main()
