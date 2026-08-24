@@ -8,13 +8,37 @@ ch() {
 	command claude -p "Answer the following question - it may or may not be related to the currently open project & files. Answer very briefly, limiting your response to 1 or 2 lines. Don't add any code to the project. The question is: How do I $*"
 }
 
+# Pick the config dir (login, auth, history) for a directory. Work dirs get
+# their own so the Blockskye account never bleeds into personal projects. The
+# label is only cosmetic — the status line reads it to show which account is in
+# use. Assigns to the caller's CLAUDE_CONFIG_DIR / CLAUDE_ACCOUNT_LABEL.
+_cc_account() {
+	case ${1:l} in
+		${HOME:l}/work|${HOME:l}/work/*)
+			CLAUDE_CONFIG_DIR=$HOME/.claude-blockskye
+			CLAUDE_ACCOUNT_LABEL=Blockskye ;;
+		*)
+			CLAUDE_CONFIG_DIR=$HOME/.claude
+			CLAUDE_ACCOUNT_LABEL=Personal ;;
+	esac
+}
+
 # tmux session name for a directory: cc-<basename>-<hash>, so two dirs sharing a
-# basename don't collide onto the same session.
+# basename don't collide onto the same session. The path is folded to lowercase
+# first: the filesystem is case-insensitive, so ~/Dev and ~/dev are one
+# directory, and hashing them apart split one project into two session families.
 _cc_session() {
-	local dir=${1:-$PWD}
+	local dir=${${1:-$PWD}:l}
 	local base=${${dir:t}//[^a-zA-Z0-9_-]/-}
 	local hash=$(print -rn -- "$dir" | cksum | cut -d' ' -f1)
 	print -r -- "cc-${base}-${hash:0:6}"
+}
+
+# Working directory a transcript was recorded in, so resuming one from another
+# project opens where that conversation actually lives.
+_cc_resume_dir() {
+	local dir=$(${_CC_SESSIONS} --dir "resume:$1" 2>/dev/null)
+	print -r -- "${dir:-$PWD}"
 }
 
 # tmux restores the terminal to its pre-launch state on exit, wiping Claude's
@@ -81,19 +105,9 @@ _cc_pick() {
 #
 # Every launch first reaps sessions untouched for CC_PURGE_DAYS days.
 #
-# Work dirs get their own config dir (separate login/auth/history) so the
-# Blockskye account never bleeds into personal projects. The label is only
-# cosmetic — the status line reads it to show which account is in use.
 claude() {
 	local -x CLAUDE_CONFIG_DIR CLAUDE_ACCOUNT_LABEL
-	case ${PWD:l} in
-		${HOME:l}/work|${HOME:l}/work/*)
-			CLAUDE_CONFIG_DIR=$HOME/.claude-blockskye
-			CLAUDE_ACCOUNT_LABEL=Blockskye ;;
-		*)
-			CLAUDE_CONFIG_DIR=$HOME/.claude
-			CLAUDE_ACCOUNT_LABEL=Personal ;;
-	esac
+	_cc_account "$PWD"
 
 	if [[ -n $TMUX || ! -o interactive ]] || ! command -v tmux >/dev/null; then
 		command claude --dangerously-skip-permissions "$@"
@@ -111,12 +125,17 @@ claude() {
 		return
 	fi
 
+	local dir=$PWD
 	local s=$(_cc_session)
 	if (( $# == 0 )) && [[ -z $CC_NO_PICK ]]; then
 		local pick
 		pick=$(_cc_pick) || return 130          # esc / ctrl-c: do nothing
 		if [[ $pick == resume:* ]]; then
-			# No session left to attach to: start a fresh one on the transcript.
+			# No session left to attach to: start a fresh one on the transcript,
+			# in the directory that conversation was held in.
+			dir=$(_cc_resume_dir "${pick#resume:}")
+			s=$(_cc_session "$dir")
+			_cc_account "$dir"
 			set -- --resume "${pick#resume:}"
 		elif [[ -n $pick && $pick != __new__ ]]; then
 			# A session open in another window has to be stolen; attaching a second
@@ -140,7 +159,7 @@ claude() {
 	# the next free sibling name instead.
 	local n=2
 	while tmux has-session -t "=$s" 2>/dev/null; do
-		s="$(_cc_session)-$n"
+		s="$(_cc_session "$dir")-$n"
 		(( n++ ))
 	done
 	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
@@ -149,13 +168,13 @@ claude() {
 	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
 	# -e explicitly: a new session's env otherwise comes from the tmux server,
 	# which may predate this shell and carry the wrong account.
-	tmux new-session -s "$s" -c "$PWD" \
+	tmux new-session -s "$s" -c "$dir" \
 		-e "CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR" \
 		-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
 		"$run"
 	# Not "status": zsh keeps that read-only as an alias for $?.
 	local st=$?
-	_cc_ended "$s" "$PWD"
+	_cc_ended "$s" "$dir"
 	return $st
 }
 

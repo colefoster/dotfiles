@@ -17,8 +17,9 @@ fi
 
 case "$name" in
 	resume:*)
-		dir=${CC_CWD:-$PWD}
-		label="ended · resuming starts a new window"
+		dir=$("$here/cc-sessions" --dir "$name" 2>/dev/null)
+		dir=${dir:-${CC_CWD:-$PWD}}
+		label="ended · resuming starts a new window there"
 		;;
 	*)
 		dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)

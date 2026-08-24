@@ -7,7 +7,8 @@
 #   <session-name>\t<age-seconds>\t<display text>
 #
 # The first row is always the synthetic __new__ entry, so fzf's reload binding
-# keeps it after a kill. Sessions for CC_CWD sort first, then by age.
+# keeps it after a kill. Sessions for CC_CWD sort first, then by age. Ended
+# sessions from other directories come last.
 #
 # Age is the time since your last message in that session, not tmux's
 # session_activity (a detached Claude keeps emitting output) and not
@@ -58,10 +59,14 @@ JQ='fromjson?
 
 # Print "<epoch>\t<text>" for one tmux session, or nothing when it has no
 # transcript. Used by the row loop below and by cc-preview.
+cc_file() {
+	printf '%s\n' "$index" | grep -m1 -- "/$1.jsonl"
+}
+
 cc_last_message() {
 	sid=$(cc_sid "$1")
 	[ -n "$sid" ] || return 1
-	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
+	file=$(cc_file "$sid")
 	[ -n "$file" ] || return 1
 	# Most transcripts answer from the tail; only re-read the whole file when
 	# the last chunk is nothing but tool traffic.
@@ -73,6 +78,25 @@ cc_last_message() {
 
 if [ "$1" = --msg ]; then
 	cc_last_message "$2"
+	exit $?
+fi
+
+# Directory a row belongs to. A live session knows its own; an ended transcript
+# records the cwd it was started in, on some line near the top.
+cc_dir() {
+	case "$1" in
+		resume:*)
+			file=$(cc_file "${1#resume:}")
+			[ -n "$file" ] || return 1
+			head -c 200000 "$file" 2>/dev/null |
+				grep -m1 -o '"cwd":"[^"]*"' | cut -d'"' -f4
+			;;
+		*) tmux display -pt "$1" '#{session_path}' 2>/dev/null ;;
+	esac
+}
+
+if [ "$1" = --dir ]; then
+	cc_dir "$2"
 	exit $?
 fi
 
@@ -101,7 +125,7 @@ cc_sid() {
 cc_turns() {
 	sid=$(cc_sid "$1")
 	[ -n "$sid" ] || return 1
-	file=$(printf '%s\n' "$index" | grep -m1 -- "/$sid.jsonl")
+	file=$(cc_file "$sid")
 	[ -n "$file" ] || return 1
 	tail -c 262144 "$file" 2>/dev/null | tail -r | jq -Rrc "$JQ_TURNS" 2>/dev/null | head -"${2:-8}"
 }
@@ -135,21 +159,44 @@ rows=$(
 	done
 
 	# Sessions you quit out of still have their transcript, so offer the recent
-	# ones here rather than making you dig out a --resume uuid. Current
-	# directory only: this is for picking up what you just closed.
+	# ones here rather than making you dig out a --resume uuid. This directory
+	# first, since it is usually what you just closed.
 	slug=$(printf '%s' "$cwd" | sed 's/[^a-zA-Z0-9]/-/g')
+	seen=
 	shown=0
 	for root in $roots; do
 		[ -d "$root/projects/$slug" ] || continue
 		for file in $(ls -t "$root/projects/$slug"/*.jsonl 2>/dev/null); do
-			[ "$shown" -lt "${CC_ENDED_MAX:-5}" ] || break
+			[ "$shown" -lt "${CC_ENDED_MAX:-10}" ] || break
 			uuid=$(basename "$file" .jsonl)
 			printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
 			msg=$(cc_last_message "resume:$uuid") || continue
 			stamp=${msg%%"$tab"*}
 			printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+			seen="$seen$uuid
+"
 			shown=$((shown + 1))
 		done
+	done
+
+	# Then the newest ended transcripts from everywhere else, so a conversation
+	# you closed in another project is still one keypress away. Resuming one
+	# opens it in the directory it was recorded in, not this one. The candidate
+	# scan is bounded because reading each transcript's last message is not free.
+	other=0
+	for file in $(ls -t $roots/projects/*/*.jsonl 2>/dev/null | head -"${CC_ENDED_SCAN:-80}"); do
+		[ "$other" -lt "${CC_ENDED_OTHER_MAX:-10}" ] || break
+		uuid=$(basename "$file" .jsonl)
+		printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
+		printf '%s\n' "$seen" | grep -qx -- "$uuid" && continue
+		dir=$(cc_dir "resume:$uuid")
+		[ -n "$dir" ] || continue
+		# Same directory in a different case is the same directory here.
+		[ "$(printf '%s' "$dir" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$cwd" | tr 'A-Z' 'a-z')" ] && continue
+		msg=$(cc_last_message "resume:$uuid") || continue
+		stamp=${msg%%"$tab"*}
+		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$dir" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+		other=$((other + 1))
 	done
 )
 
@@ -184,7 +231,7 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		k = split($1, part, "-")
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
-		here = ($2 == cwd) ? 0 : 1
+		here = (tolower($2) == tolower(cwd)) ? 0 : 1
 		# Free sessions first, then the ones open elsewhere (which have to be
 		# stolen), then transcripts with no session left to attach to.
 		state = ($5 == 1) ? "open" : (($5 == 2) ? "ended" : "")
