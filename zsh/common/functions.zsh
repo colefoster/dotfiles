@@ -135,3 +135,40 @@ y() {
     [ "$cwd" != "$PWD" ] && [ -d "$cwd" ] && builtin cd -- "$cwd"
     command rm -f -- "$tmp"
 }
+
+# ──────────────────────────────────────────────
+# Beads
+# ──────────────────────────────────────────────
+
+# Beads web viewer: regenerate the bv static site on every bd write and serve it
+# with live reload. bv --preview-pages hardcodes port 9000 and both bv processes
+# need a cwd inside the beads repo, so this walks up to the .beads root first.
+#   beadsweb        -> start for the repo containing $PWD, open the browser
+#   beadsweb stop   -> stop the watcher and the preview server
+beadsweb() {
+  if [[ "$1" == "stop" ]]; then
+    pkill -f 'bv --export-pages' 2>/dev/null
+    pkill -f 'bv --preview-pages' 2>/dev/null
+    echo "beadsweb stopped"
+    return 0
+  fi
+
+  local root="$PWD"
+  while [[ "$root" != "/" && ! -d "$root/.beads" ]]; do root=${root:h}; done
+  if [[ ! -d "$root/.beads" ]]; then
+    echo "beadsweb: no .beads found above $PWD (run 'bd init --stealth' first)" >&2
+    return 1
+  fi
+
+  local dir=/tmp/bv-pages/${root:t}
+  mkdir -p "$dir"
+  beadsweb stop >/dev/null 2>&1
+
+  # --watch-export logs "watched file was removed" whenever Dolt rotates its
+  # storage files. Harmless — the regenerate still fires. Log, don't surface it.
+  ( cd "$root" && nohup bv --export-pages "$dir" --watch-export >/tmp/bv-watch.log 2>&1 &! )
+  ( cd "$root" && nohup bv --preview-pages "$dir" >/tmp/bv-preview.log 2>&1 &! )
+  sleep 3
+  open http://localhost:9000
+  echo "beadsweb: ${root:t} → http://localhost:9000 (live reload) · logs: /tmp/bv-watch.log /tmp/bv-preview.log"
+}
