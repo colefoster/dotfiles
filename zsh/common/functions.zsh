@@ -172,3 +172,43 @@ beadsweb() {
   open http://localhost:9000
   echo "beadsweb: ${root:t} → http://localhost:9000 (live reload) · logs: /tmp/bv-watch.log /tmp/bv-preview.log"
 }
+
+# Cross-project beads overview. A hub workspace at ~/.beads-hub registers every
+# repo under ~/Dev that has a .beads dir and hydrates their issues into one
+# database, so a single bv site covers all of them. IDs keep their per-repo
+# prefix (mt-, mk-), which is what identifies the project in the combined view.
+#   beadsall        -> re-sync every repo, rebuild the site, open the browser
+#   beadsall stop   -> stop the preview server
+#
+# bd repo sync reads each repo's .beads/issues.jsonl, NOT its Dolt store, so the
+# per-repo `bd export` below is required — without it a repo silently syncs zero
+# issues. bv --preview-pages hardcodes port 9000, so this and beadsweb cannot
+# both run; each stops the other.
+beadsall() {
+  local hub=~/.beads-hub
+  if [[ "$1" == "stop" ]]; then
+    pkill -f 'bv --preview-pages' 2>/dev/null
+    pkill -f 'bv --export-pages' 2>/dev/null
+    echo "beadsall stopped"
+    return 0
+  fi
+
+  if [[ ! -d "$hub/.beads" ]]; then
+    echo "beadsall: no hub at $hub — see 'bd init --prefix hub' there" >&2
+    return 1
+  fi
+
+  local repo
+  for repo in ~/Dev/*/.beads(N:h); do
+    ( cd "$repo" && bd export -o .beads/issues.jsonl >/dev/null 2>&1 )
+    bd -C "$hub" repo add "$repo" >/dev/null 2>&1
+  done
+
+  bd -C "$hub" repo sync 2>&1 | tail -1
+  beadsall stop >/dev/null 2>&1
+  ( cd "$hub" && nohup bv --export-pages /tmp/bv-pages/_overview >/tmp/bv-overview.log 2>&1 )
+  ( cd "$hub" && nohup bv --preview-pages /tmp/bv-pages/_overview >>/tmp/bv-overview.log 2>&1 &! )
+  sleep 3
+  open http://localhost:9000
+  echo "beadsall: overview → http://localhost:9000 · log: /tmp/bv-overview.log"
+}
