@@ -51,6 +51,7 @@ Flags, mapped from `$ARGUMENTS`:
 | `-f` | Move the terminal to the new session. Off by default, so this session keeps the keyboard. |
 | `-d DIR` | Working directory for the new session. |
 | `-t TITLE` | Pane or window title. |
+| `-T` | Leave the workspace-trust dialog to the new session. Off by default: `cc-spawn` pre-accepts trust for the target directory, so a seeded session does not stall on that prompt. |
 | `--raw` | Skip Phase 2 and seed the new session with the argument text verbatim. `cc-spawn` does not take this flag — strip it before building the command. |
 
 `cc-spawn` prints the target and the path it parked the seed prompt at. It picks the Claude account from the target directory, the same way the `claude` wrapper does.

@@ -12,6 +12,7 @@
 #     -v       stack the pane above/below instead of side by side
 #     -f       move the terminal to the new session
 #     -t       title for the pane/window
+#     -T       leave the workspace-trust dialog to the new session
 #
 # Meant to be run by Claude from inside a wrapped session, so handing work to a
 # parallel session costs no copy-paste.
@@ -23,6 +24,7 @@ mode=pane
 split=-h
 focus=0
 title=
+trust=1
 
 while [ $# -gt 0 ]; do
 	case $1 in
@@ -33,6 +35,7 @@ while [ $# -gt 0 ]; do
 		-v) split=-v; shift ;;
 		-f) focus=1; shift ;;
 		-t) title=$2; shift 2 ;;
+		-T) trust=0; shift ;;
 		--) shift; break ;;
 		-*) echo "cc-spawn: unknown option $1" >&2; exit 1 ;;
 		*) break ;;
@@ -79,6 +82,35 @@ done
 mkdir -p "$cfg/handoffs"
 seed="$cfg/handoffs/$name.md"
 cat "$file" > "$seed"
+
+# A session that opens on an untrusted directory stops at the workspace-trust
+# dialog and waits, which strands the prompt we just seeded. Answer it in
+# advance the way the dialog would, keyed on the exact path we hand to tmux.
+if [ "$trust" = 1 ]; then
+	CC_SPAWN_DIR=$dir CC_SPAWN_CFG=$cfg python3 - <<'TRUST' || echo "cc-spawn: could not pre-trust $dir" >&2
+import json, os, tempfile
+
+cfg = os.path.join(os.environ["CC_SPAWN_CFG"], ".claude.json")
+d = os.environ["CC_SPAWN_DIR"]
+try:
+    with open(cfg) as f:
+        conf = json.load(f)
+except (OSError, ValueError):
+    raise SystemExit(1)
+
+entry = conf.setdefault("projects", {}).setdefault(d, {})
+if entry.get("hasTrustDialogAccepted") is True:
+    raise SystemExit(0)
+entry["hasTrustDialogAccepted"] = True
+
+# Every live session rewrites this file, so keep the window between read and
+# rename as short as possible and swap it in atomically.
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(cfg))
+with os.fdopen(fd, "w") as f:
+    json.dump(conf, f, indent=2)
+os.replace(tmp, cfg)
+TRUST
+fi
 
 run="claude --dangerously-skip-permissions \"\$(cat '$seed')\""
 
