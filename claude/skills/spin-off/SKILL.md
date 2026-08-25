@@ -1,7 +1,7 @@
 ---
 name: spin-off
 description: Start a second, user-driven Claude session beside this one — a tmux split (or window, or session) seeded with a self-contained briefing on whatever work is being handed over. Use when the user wants to spin off, fork, branch, or peel off a task into another session, open a second Claude on something, or run a side quest in parallel without an agent-managed subagent.
-argument-hint: "[what the new session should work on] [-w window | -s session] [-v stacked] [-f focus it] [-d DIR]"
+argument-hint: "[what the new session should work on] [--raw pass it through verbatim] [-w window | -s session] [-v stacked] [-f focus it] [-d DIR]"
 ---
 
 # Spin off a parallel session
@@ -20,6 +20,9 @@ Decide the working directory. It defaults to this one; use `-d DIR` when the wor
 
 ## Phase 2 — Write the briefing
 
+**Skip this phase when `$ARGUMENTS` contains `--raw`.** The text that remains after the flags is then the prompt itself, verbatim: write it to the file unchanged, add nothing, and note "raw" in the summary. Use `--raw` as written even when the text reads as terse or incomplete — passing it through untouched is the point of the flag.
+
+
 Write the prompt as if **the user is speaking to a fresh Claude**, first person ("I want you to..."), not as a report about this session. The new session loads `CLAUDE.md` and `MEMORY.md` on its own, so do not restate anything in those.
 
 Include only what is load-bearing:
@@ -34,7 +37,7 @@ Keep it under about 200 words.
 
 ## Phase 3 — Launch it
 
-1. Write the prompt as raw text — no fences, no surrounding prose — to a file under `${TMPDIR:-/tmp}`.
+1. Write the prompt as plain text — no fences, no surrounding prose — to a file under `${TMPDIR:-/tmp}`.
 2. Run `~/dotfiles/zsh/common/cc-spawn [flags] <that file>`.
 
 Flags, mapped from `$ARGUMENTS`:
@@ -48,6 +51,7 @@ Flags, mapped from `$ARGUMENTS`:
 | `-f` | Move the terminal to the new session. Off by default, so this session keeps the keyboard. |
 | `-d DIR` | Working directory for the new session. |
 | `-t TITLE` | Pane or window title. |
+| `--raw` | Skip Phase 2 and seed the new session with the argument text verbatim. `cc-spawn` does not take this flag — strip it before building the command. |
 
 `cc-spawn` prints the target and the path it parked the seed prompt at. It picks the Claude account from the target directory, the same way the `claude` wrapper does.
 
