@@ -1,0 +1,124 @@
+#!/bin/sh
+# Spin off a second, user-driven Claude session next to this one: seed it with a
+# prompt, put it in a tmux split (or window, or session), and leave it for the
+# user to talk to. Nothing about it is agent-managed — it is a peer session.
+#
+#   cc-spawn [-d DIR] [-p|-w|-s] [-v] [-f] [-t TITLE] <prompt-file>
+#
+#     -d DIR   working directory for the new session (default: this one)
+#     -p       tmux pane beside this one (default)
+#     -w       tmux window in this session instead of a pane
+#     -s       detached tmux session of its own
+#     -v       stack the pane above/below instead of side by side
+#     -f       move the terminal to the new session
+#     -t       title for the pane/window
+#
+# Meant to be run by Claude from inside a wrapped session, so handing work to a
+# parallel session costs no copy-paste.
+
+set -e
+
+dir=$PWD
+mode=pane
+split=-h
+focus=0
+title=
+
+while [ $# -gt 0 ]; do
+	case $1 in
+		-d) dir=$2; shift 2 ;;
+		-p) mode=pane; shift ;;
+		-w) mode=window; shift ;;
+		-s) mode=session; shift ;;
+		-v) split=-v; shift ;;
+		-f) focus=1; shift ;;
+		-t) title=$2; shift 2 ;;
+		--) shift; break ;;
+		-*) echo "cc-spawn: unknown option $1" >&2; exit 1 ;;
+		*) break ;;
+	esac
+done
+
+file=$1
+if [ ! -s "$file" ]; then
+	echo "cc-spawn: need a readable, non-empty prompt file" >&2
+	exit 1
+fi
+if [ -z "$TMUX" ]; then
+	echo "cc-spawn: only works inside a tmux-wrapped session" >&2
+	exit 1
+fi
+if [ ! -d "$dir" ]; then
+	echo "cc-spawn: no such directory: $dir" >&2
+	exit 1
+fi
+dir=$(cd "$dir" && pwd)
+
+# Same account rule as the claude() wrapper: ~/work keeps its own login, so a
+# session spawned into a work directory does not come up on the personal one.
+case $(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]') in
+	"$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')"/work|"$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')"/work/*)
+		cfg=$HOME/.claude-blockskye; label=Blockskye ;;
+	*)
+		cfg=$HOME/.claude; label=Personal ;;
+esac
+
+# Same naming as the claude() wrapper: cc-<basename>-<hash>, first free suffix.
+lower=$(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]')
+base=$(printf '%s' "${lower##*/}" | tr -c 'a-zA-Z0-9_-' '-')
+hash=$(printf '%s' "$lower" | cksum | cut -d' ' -f1 | cut -c1-6)
+name="cc-$base-$hash"
+n=2
+while tmux has-session -t "=$name" 2>/dev/null; do
+	name="cc-$base-$hash-$n"
+	n=$((n + 1))
+done
+
+# Park the prompt on disk: the new session reads it at startup, and it stays
+# readable afterwards for anyone wondering what was handed over.
+mkdir -p "$cfg/handoffs"
+seed="$cfg/handoffs/$name.md"
+cat "$file" > "$seed"
+
+run="claude --dangerously-skip-permissions \"\$(cat '$seed')\""
+
+# A Claude TUI under about 80 columns or 24 rows is unusable. Rather than hand
+# back a pane too small to read, fall back: side by side, then stacked, then a
+# window of its own.
+if [ "$mode" = pane ]; then
+	width=$(tmux display -p '#{pane_width}')
+	height=$(tmux display -p '#{pane_height}')
+	if [ "$split" = -h ] && [ "$width" -lt 160 ]; then
+		split=-v
+	fi
+	if [ "$split" = -v ] && [ "$height" -lt 48 ]; then
+		mode=window
+	fi
+fi
+
+case $mode in
+	pane)
+		target=$(tmux split-window $split -d -P -F '#{session_name}:#{window_index}.#{pane_index}' \
+			-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
+		if [ -n "$title" ]; then tmux select-pane -t "$target" -T "$title"; fi
+		if [ "$focus" = 1 ]; then tmux select-pane -t "$target"; fi
+		;;
+	window)
+		if [ -n "$title" ]; then
+			target=$(tmux new-window -d -P -F '#{session_name}:#{window_index}' -n "$title" \
+				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
+		else
+			target=$(tmux new-window -d -P -F '#{session_name}:#{window_index}' \
+				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
+		fi
+		if [ "$focus" = 1 ]; then tmux select-window -t "$target"; fi
+		;;
+	session)
+		tmux new-session -d -s "$name" -c "$dir" \
+			-e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run"
+		target=$name
+		if [ "$focus" = 1 ]; then tmux switch-client -t "=$name"; fi
+		;;
+esac
+
+printf 'spawned %s at %s (%s)\nseed: %s\n' "$mode" "$target" "$dir" "$seed"
