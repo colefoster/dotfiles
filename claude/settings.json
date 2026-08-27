@@ -75,7 +75,8 @@
     "clangd-lsp@claude-plugins-official": true,
     "watch@claude-video": true,
     "mattpocock-skills@claude-plugins-official": true,
-    "codex@openai-codex": true
+    "codex@openai-codex": true,
+    "pixel-plugin@pixel-plugin": true
   },
   "extraKnownMarketplaces": {
     "claude-video": {
@@ -89,6 +90,12 @@
         "source": "github",
         "repo": "openai/codex-plugin-cc"
       }
+    },
+    "pixel-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "willibrandon/pixel-plugin"
+      }
     }
   },
   "viewMode": "focus",
@@ -97,5 +104,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "autoScrollEnabled": true,
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "remoteControlAtStartup": false
 }
