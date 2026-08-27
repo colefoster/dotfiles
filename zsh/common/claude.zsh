@@ -178,10 +178,14 @@ claude() {
 		s="$(_cc_session "$dir")-$n"
 		(( n++ ))
 	done
-	# ${(q)a} inside quotes would join the array into ONE argument; ${(q)a[@]}
-	# quotes each element and joins with spaces, which is what sh needs.
+	# sh gets this as one string, so each argument has to arrive separately
+	# quoted. ${(q)a[@]} inside double quotes does NOT do that: it joins the
+	# array first and then escapes the spaces between elements, so --resume
+	# <uuid> reached claude as a single unknown flag and the session died on
+	# startup. ${(@q)a} quotes element by element; (j: :) joins the result. The
+	# ${a:+ } guard keeps an empty array from adding a stray '' argument.
 	local -a a=("$@")
-	local run="claude --dangerously-skip-permissions ${(q)a[@]}"
+	local run="claude --dangerously-skip-permissions${a:+ ${(j: :)${(@q)a}}}"
 	# -e explicitly: a new session's env otherwise comes from the tmux server,
 	# which may predate this shell and carry the wrong account.
 	tmux new-session -s "$s" -c "$dir" \
