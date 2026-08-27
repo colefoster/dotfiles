@@ -127,7 +127,13 @@ cc_turns() {
 	[ -n "$sid" ] || return 1
 	file=$(cc_file "$sid")
 	[ -n "$file" ] || return 1
-	tail -c 262144 "$file" 2>/dev/null | tail -r | jq -Rrc "$JQ_TURNS" 2>/dev/null | head -"${2:-8}"
+	# Same tail-then-whole-file fallback as cc_last_message: a session that
+	# ended on a long stretch of tool calls has nothing to show in the last
+	# chunk, and a blank preview reads as a broken row.
+	out=$(tail -c 262144 "$file" 2>/dev/null | tail -r | jq -Rrc "$JQ_TURNS" 2>/dev/null | head -"${2:-8}")
+	[ -n "$out" ] || out=$(tail -r "$file" 2>/dev/null | jq -Rrc "$JQ_TURNS" 2>/dev/null | head -"${2:-8}")
+	[ -n "$out" ] || return 1
+	printf '%s\n' "$out"
 }
 
 if [ "$1" = --turns ]; then
@@ -184,7 +190,19 @@ rows=$(
 	# opens it in the directory it was recorded in, not this one. The candidate
 	# scan is bounded because reading each transcript's last message is not free.
 	other=0
-	for file in $(ls -t $roots/projects/*/*.jsonl 2>/dev/null | head -"${CC_ENDED_SCAN:-80}"); do
+	# "$roots/projects/*/*.jsonl" word-splits into "<root1> <root2>/projects/..."
+	# — the suffix binds to the last root only, so the first account's
+	# transcripts never reach the scan and the bare root arrives as a directory
+	# for ls to list. Expand per root, then sort the union by mtime in one go so
+	# newest-first still holds across both accounts.
+	scan=
+	for root in $roots; do
+		for f in "$root"/projects/*/*.jsonl; do
+			[ -f "$f" ] && scan="$scan $f"
+		done
+	done
+	[ -n "$scan" ] || scan=/nonexistent
+	for file in $(ls -t $scan 2>/dev/null | head -"${CC_ENDED_SCAN:-80}"); do
 		[ "$other" -lt "${CC_ENDED_OTHER_MAX:-10}" ] || break
 		uuid=$(basename "$file" .jsonl)
 		printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
