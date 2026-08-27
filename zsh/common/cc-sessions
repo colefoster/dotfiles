@@ -7,8 +7,8 @@
 #   <session-name>\t<age-seconds>\t<display text>
 #
 # The first row is always the synthetic __new__ entry, so fzf's reload binding
-# keeps it after a kill. Sessions for CC_CWD sort first, then by age. Ended
-# sessions from other directories come last.
+# keeps it after a kill. Everything after it is one chronological list, newest
+# first, whatever state the session is in.
 #
 # Age is the time since your last message in that session, not tmux's
 # session_activity (a detached Claude keeps emitting output) and not
@@ -232,12 +232,14 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
 		here = (tolower($2) == tolower(cwd)) ? 0 : 1
-		# Free sessions first, then the ones open elsewhere (which have to be
-		# stolen), then transcripts with no session left to attach to.
+		# One chronological list, newest first, whatever the state: what you
+		# touched last is what you are most likely reaching for. State stays
+		# legible in the row itself — dim for anything not free to attach,
+		# and a * for this directory.
 		state = ($5 == 1) ? "open" : (($5 == 2) ? "ended" : "")
 		row = sprintf("%s %-24s %-6s %8s  %s", (here ? " " : "*"), dir, state, ago($3), $6)
 		if ($5 != 0) row = "\033[2m" row "\033[0m"
-		printf "%d\t%s\t%s\t%s\n", here * 3 + $5, $3, $1, row
+		printf "%s\t%s\t%s\t%s\n", $3, $3, $1, row
 	}' |
 sort -t"$tab" -k1,1n -k2,2n |
 cut -f2,3,4 |
