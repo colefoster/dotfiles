@@ -79,12 +79,20 @@ _cc_pick() {
 		return 0
 	fi
 
+	# "open" means different things depending on where the picker runs: from a
+	# bare terminal it steals the session away from the window holding it;
+	# inside tmux it only moves this client.
+	local open_hint='steal it back from the other window'
+	[[ -n $TMUX ]] && open_hint='jump this window to it'
+	local header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\n'
+	header+="open = $open_hint   ended = resume the transcript"
+
 	local sel
 	sel=$(print -rl -- "${rows[@]}" | fzf \
 		--delimiter=$'\t' --with-nth=3.. --no-multi --ansi \
 		--height=70% --layout=reverse --border=rounded \
 		--prompt='claude ❯ ' \
-		--header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\nopen = steal it back from the other window   ended = resume the transcript' \
+		--header="$header" \
 		--preview="CC_CWD=${(q)PWD} ${(q)_CC_PREVIEW} {1}" \
 		--preview-window='right,50%,wrap,<150(down,55%,wrap)' \
 		--bind='ctrl-n:become(echo __new__)' \
