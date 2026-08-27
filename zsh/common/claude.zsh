@@ -104,13 +104,17 @@ _cc_pick() {
 #                       never silently swallowed
 #   one-shot / non-TUI  runs bare — nothing worth keeping alive
 #
+# Inside tmux it behaves the same, except the client switches sessions rather
+# than attaching, so the picker stands in for prefix+s and every session is a
+# tmux session — no Ghostty split has to hold one.
+#
 # Every launch first reaps sessions untouched for CC_PURGE_DAYS days.
 #
 claude() {
 	local -x CLAUDE_CONFIG_DIR CLAUDE_ACCOUNT_LABEL
 	_cc_account "$PWD"
 
-	if [[ -n $TMUX || ! -o interactive ]] || ! command -v tmux >/dev/null; then
+	if [[ ! -o interactive ]] || ! command -v tmux >/dev/null; then
 		command claude --dangerously-skip-permissions "$@"
 		return
 	fi
@@ -139,6 +143,17 @@ claude() {
 			_cc_account "$dir"
 			set -- --resume "${pick#resume:}"
 		elif [[ -n $pick && $pick != __new__ ]]; then
+			# Inside tmux, moving this client is the whole job. Attaching from
+			# here would nest a client inside a session; switch-client walks over
+			# instead. Whoever else holds it is sent away first, for the reason the
+			# outside path steals: two clients mirror the session and both get
+			# squeezed to the smaller size.
+			if [[ -n $TMUX ]]; then
+				[[ $(tmux display -p '#{session_name}') == $pick ]] && return 0
+				tmux detach-client -s "=$pick" 2>/dev/null
+				tmux switch-client -t "=$pick"
+				return
+			fi
 			# A session open in another window has to be stolen; attaching a second
 			# client would mirror it and force both windows to the smaller size.
 			local steal=
@@ -189,6 +204,18 @@ claude() {
 	local run="claude --dangerously-skip-permissions${a:+ ${(j: :)${(@q)a}}}"
 	# -e explicitly: a new session's env otherwise comes from the tmux server,
 	# which may predate this shell and carry the wrong account.
+	# Inside tmux, build it detached and walk the client over: a foreground
+	# new-session would nest one session inside another. The session this was
+	# typed in stays alive behind you, one picker away.
+	if [[ -n $TMUX ]]; then
+		tmux new-session -d -s "$s" -c "$dir" \
+			-e "CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR" \
+			-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
+			"$run" || return
+		tmux switch-client -t "=$s"
+		return
+	fi
+
 	tmux new-session -s "$s" -c "$dir" \
 		-e "CLAUDE_CONFIG_DIR=$CLAUDE_CONFIG_DIR" \
 		-e "CLAUDE_ACCOUNT_LABEL=$CLAUDE_ACCOUNT_LABEL" \
