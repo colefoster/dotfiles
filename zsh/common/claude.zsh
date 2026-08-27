@@ -4,7 +4,12 @@ export CLAUDE_CODE_NO_FLICKER=1
 # function definitions below a parse error, so clear it first.
 unalias claude 2>/dev/null
 
+# Picks the account the same way claude() does: a one-shot question asked in a
+# work directory has to answer on the work account, and a bare shell carries
+# whatever CLAUDE_CONFIG_DIR it inherited — including none at all.
 ch() {
+	local -x CLAUDE_CONFIG_DIR CLAUDE_ACCOUNT_LABEL
+	_cc_account "$PWD"
 	command claude -p "Answer the following question - it may or may not be related to the currently open project & files. Answer very briefly, limiting your response to 1 or 2 lines. Don't add any code to the project. The question is: How do I $*"
 }
 
@@ -182,11 +187,21 @@ claude() {
 			# client would mirror it and force both windows to the smaller size.
 			local steal=
 			# A "=" exact-match target works for has-session and kill-session but
-			# comes back empty from display, so match on the plain name.
-			[[ $(tmux display -pt "$pick" '#{session_attached}') == 0 ]] || steal=-d
+			# comes back empty from display, and a plain name PREFIX-matches: once
+			# cc-foo-123456 exits, display resolves it to its sibling
+			# cc-foo-123456-2 and the steal decision is read off the wrong session.
+			# Match the name exactly out of the session list instead.
+			local row=$(tmux ls -F $'#{session_name}\t#{session_attached}\t#{session_path}' 2>/dev/null |
+				awk -F'\t' -v s="$pick" '$1 == s { print $2 "\t" $3; exit }')
+			[[ ${row%%$'\t'*} == 0 ]] || steal=-d
+			# The footer names where the session lives, not where it was picked
+			# from: resuming one from another project told you to run claude in
+			# this directory, where it does not exist.
+			local pdir=${row#*$'\t'}
+			[[ -n $pdir ]] || pdir=$PWD
 			tmux attach $steal -t "=$pick"
 			local attach_status=$?
-			_cc_ended "$pick" "$PWD"
+			_cc_ended "$pick" "$pdir"
 			return $attach_status
 		fi
 	else
@@ -252,15 +267,21 @@ claude() {
 
 # Save and restore a window full of Claude sessions:
 #   cclay save [name]   cclay list   cclay restore <name>   cclay rm <name>
-cclay() { ${_CC_LAYOUT} "$@" }
+# Same stale-$TMUX guard as claude(): restore would otherwise switch the window
+# the env was inherited from, and save would snapshot that window's session.
+cclay() { _cc_disown_stale_tmux; ${_CC_LAYOUT} "$@" }
 
 # List live claude sessions; with an argument, attach to the first match.
 #   ccl -s <name>   steal it, detaching whatever window has it open
 ccl() {
+	# Without this, an inherited $TMUX makes tmux refuse the attach below as a
+	# nested session.
+	_cc_disown_stale_tmux
 	local steal=
 	[[ $1 == -s ]] && { steal=-d; shift }
 	if [[ -n $1 ]]; then
-		local t=$(tmux ls -F '#S' 2>/dev/null | grep -m1 -- "$1")
+		# Only cc-* sessions are ours; the bare listing matched anything.
+		local t=$(tmux ls -F '#S' 2>/dev/null | grep '^cc-' | grep -m1 -- "$1")
 		[[ -z $t ]] && { print -u2 "ccl: no session matching '$1'"; return 1 }
 		tmux attach $steal -t "=$t"
 		return
