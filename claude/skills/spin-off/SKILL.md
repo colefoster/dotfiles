@@ -46,6 +46,7 @@ Flags, mapped from `$ARGUMENTS`:
 |---|---|
 | _(none)_ | A pane beside this one. Side by side when the window is at least 160 columns, stacked when it is tall enough, otherwise a window. |
 | `-v` | Force the stacked split. |
+| `-l SIZE` | Size of the new pane — lines, columns, or a percentage such as `60%`. |
 | `-w` | A tmux window in this session instead of a pane. |
 | `-s` | A detached tmux session of its own, reachable with `ccl`. |
 | `-f` | Move the terminal to the new session. Off by default, so this session keeps the keyboard. |
