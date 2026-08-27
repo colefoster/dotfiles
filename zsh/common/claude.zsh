@@ -154,6 +154,22 @@ claude() {
 		# it is skipped, do that in the background so it costs no startup time.
 		(${_CC_SESSIONS} >/dev/null 2>&1 &) 2>/dev/null
 	fi
+	# An explicit --resume names a transcript that may have been recorded in
+	# another project. Follow it: the directory, session name, and account all
+	# come from where that conversation lives, not from wherever the command
+	# happened to be typed. Without this, resuming a personal transcript from a
+	# work directory opens it on the work account, which cannot read it.
+	# Match on the uuid shape rather than a repetition pattern: extended globs
+	# are not guaranteed to be on in the shell sourcing this file.
+	if [[ ( $1 == --resume || $1 == -r ) && $2 == *-*-*-*-* ]]; then
+		local rdir=$(_cc_resume_dir "$2")
+		if [[ -n $rdir && $rdir != $dir ]]; then
+			dir=$rdir
+			s=$(_cc_session "$dir")
+			_cc_account "$dir"
+		fi
+	fi
+
 	# Attaching a second client to a live session mirrors it (and forces both
 	# windows to the smaller size), so an attached session is never reused: take
 	# the next free sibling name instead.
