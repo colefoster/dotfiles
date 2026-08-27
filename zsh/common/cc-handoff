@@ -21,8 +21,13 @@ old=$(tmux display -p '#{session_name}')
 dir=$PWD
 
 # Same naming as the claude() wrapper: cc-<basename>-<hash>, first free suffix.
-base=$(printf '%s' "${dir##*/}" | tr -c 'a-zA-Z0-9_-' '-')
-hash=$(printf '%s' "$dir" | cksum | cut -d' ' -f1 | cut -c1-6)
+# The wrapper folds the path to lowercase before hashing — the filesystem is
+# case-insensitive, so ~/Dev and ~/dev are one directory. Hashing the raw $PWD
+# here put every handoff in a different session family than the one claude()
+# would compute for the same directory.
+lower=$(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]')
+base=$(printf '%s' "${lower##*/}" | tr -c 'a-zA-Z0-9_-' '-')
+hash=$(printf '%s' "$lower" | cksum | cut -d' ' -f1 | cut -c1-6)
 new="cc-$base-$hash"
 n=2
 while tmux has-session -t "=$new" 2>/dev/null; do
