@@ -40,10 +40,9 @@ link "$DOTFILES_DIR/tmux.conf" "$HOME/.tmux.conf"
 mkdir -p "$HOME/.config"
 link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
 
-# Ghostty. Two files, both live: the cross-platform one in ~/.config, and the
-# macOS app's own, which is where the Ghostty Config app writes the theme.
-mkdir -p "$HOME/.config/ghostty"
-link "$DOTFILES_DIR/ghostty/config" "$HOME/.config/ghostty/config"
+# Ghostty. Only the macOS app-support file, where the Ghostty Config app writes
+# the theme. The ~/.config/ghostty one belongs to omacosy, which symlinks the
+# whole directory out of its own repo.
 if [[ "$PLATFORM" == "macos" ]]; then
   mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
   link "$DOTFILES_DIR/ghostty/config.ghostty" \
