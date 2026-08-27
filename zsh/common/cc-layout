@@ -1,0 +1,153 @@
+#!/bin/sh
+# Save a tmux window full of Claude sessions, and bring the whole thing back
+# after a reboot: same panes, same sizes, each one resuming the conversation it
+# was holding.
+#
+#   cc-layout save [NAME] [-t SESSION]
+#                              snapshot a window (default: the current one; the
+#                              default name is the tmux session's, minus cc-)
+#   cc-layout list             what has been saved
+#   cc-layout restore NAME     rebuild it as a new tmux session
+#   cc-layout rm NAME
+#
+# tmux sessions survive quitting the terminal — they only die with the machine
+# or the tmux server. This is for the times they do die.
+
+store=${CC_LAYOUT_DIR:-$HOME/.claude/layouts}
+here=$(dirname "$0")
+tab=$(printf '\t')
+
+usage() {
+	echo "usage: cc-layout save [NAME] | list | restore NAME | rm NAME" >&2
+	exit 1
+}
+
+# Claude session id running in one tmux pane, or nothing for a plain shell.
+# Both config roots record live sessions, keyed by "<session>:@win.%pane".
+pane_sid() {
+	jq -r --arg t "$1" 'select(.tmux == $t) | .sessionId // empty' \
+		"$HOME"/.claude/sessions/*.json "$HOME"/.claude-blockskye/sessions/*.json 2>/dev/null |
+		head -1
+}
+
+cmd_save() {
+	from=
+	name=
+	while [ $# -gt 0 ]; do
+		case $1 in
+			-t) from=$2; shift 2 ;;
+			*) name=$1; shift ;;
+		esac
+	done
+
+	if [ -n "$from" ]; then
+		session=${from%%:*}
+		window=${from#*:}
+		[ "$window" = "$from" ] && window=$(tmux display -pt "=$session" '#{window_index}')
+	else
+		[ -n "$TMUX" ] || { echo "cc-layout: save needs -t SESSION outside tmux" >&2; exit 1; }
+		session=$(tmux display -p '#{session_name}')
+		window=$(tmux display -p '#{window_index}')
+	fi
+	tmux has-session -t "=$session" 2>/dev/null ||
+		{ echo "cc-layout: no tmux session named $session" >&2; exit 1; }
+	[ -n "$name" ] || name=$(printf '%s' "${session#cc-}" | tr -c 'a-zA-Z0-9_-' '-')
+
+	mkdir -p "$store"
+	file=$store/$name.tsv
+	{
+		printf 'layout\t%s\n' "$(tmux display -pt "$session:$window" '#{window_layout}')"
+		tmux list-panes -t "$session:$window" \
+			-F "#{pane_index}${tab}#{pane_current_path}${tab}$session:@#{window_id}.%#{pane_id}" |
+		while IFS="$tab" read -r idx path key; do
+			# window_id and pane_id already carry their sigils; the format above
+			# adds its own so the field survives an empty id.
+			key=$(printf '%s' "$key" | sed 's/@@/@/; s/%%/%/')
+			printf '%s\t%s\t%s\n' "$idx" "$path" "$(pane_sid "$key")"
+		done
+	} > "$file"
+
+	panes=$(($(wc -l < "$file") - 1))
+	live=$(awk -F"$tab" 'NR > 1 && $3 != ""' "$file" | wc -l | tr -d ' ')
+	printf 'saved %s — %s panes, %s resumable\n%s\n' "$name" "$panes" "$live" "$file"
+}
+
+cmd_list() {
+	[ -d "$store" ] || { echo "no layouts saved"; return 0; }
+	for f in "$store"/*.tsv; do
+		[ -f "$f" ] || continue
+		n=$(basename "$f" .tsv)
+		printf '%-24s %s panes  %s\n' "$n" "$(($(wc -l < "$f") - 1))" \
+			"$(awk -F"$tab" 'NR == 2 { print $2 }' "$f")"
+	done
+}
+
+# Command for one pane: resume its conversation, or just a shell when the pane
+# was not running Claude. A transcript that has since been deleted falls back to
+# a fresh session rather than an error.
+pane_cmd() {
+	dir=$1 sid=$2
+	[ -n "$sid" ] || { printf '%s\n' "$SHELL"; return; }
+	printf 'claude --dangerously-skip-permissions --resume %s\n' "$sid"
+}
+
+cmd_restore() {
+	name=$1
+	[ -n "$name" ] || usage
+	file=$store/$name.tsv
+	[ -s "$file" ] || { echo "cc-layout: no saved layout named $name" >&2; exit 1; }
+
+	layout=$(awk -F"$tab" '$1 == "layout" { print $2; exit }' "$file")
+	target=cc-$name
+	n=2
+	while tmux has-session -t "=$target" 2>/dev/null; do
+		target="cc-$name-$n"
+		n=$((n + 1))
+	done
+
+	# Resuming a conversation that is still open elsewhere puts two processes on
+	# one transcript. After a reboot nothing is live, so this is only a nudge.
+	ids=$(mktemp)
+	awk -F"$tab" 'NR > 1 && $3 != "" { print $3 }' "$file" > "$ids"
+	busy=$(jq -r '.sessionId // empty' "$HOME"/.claude/sessions/*.json \
+		"$HOME"/.claude-blockskye/sessions/*.json 2>/dev/null |
+		grep -c -Fx -f "$ids")
+	rm -f "$ids"
+	[ "$busy" = 0 ] || echo "cc-layout: $busy of these conversations are already open somewhere" >&2
+
+	first=1
+	awk -F"$tab" 'NR > 1 && $1 != ""' "$file" |
+	while IFS="$tab" read -r idx dir sid; do
+		[ -d "$dir" ] || dir=$HOME
+		acct=$("$here/cc-account" "$dir")
+		cfg=${acct%%"$tab"*}
+		label=${acct#*"$tab"}
+		run=$(pane_cmd "$dir" "$sid")
+		if [ "$first" = 1 ]; then
+			tmux new-session -d -s "$target" -c "$dir" \
+				-e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run"
+			first=0
+		else
+			tmux split-window -t "$target:1" -d -c "$dir" \
+				-e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run"
+		fi
+	done
+
+	# Sizes come back in one step: the saved layout string carries every pane's
+	# geometry, and panes were recreated in their original order.
+	[ -n "$layout" ] && tmux select-layout -t "$target:1" "$layout" 2>/dev/null
+
+	if [ -n "$TMUX" ]; then
+		tmux switch-client -t "=$target"
+	else
+		printf 'restored %s — attach with: tmux attach -t %s\n' "$target" "$target"
+	fi
+}
+
+case ${1:-} in
+	save) shift; cmd_save "$@" ;;
+	list|ls) cmd_list ;;
+	restore) shift; cmd_restore "$@" ;;
+	rm) [ -n "$2" ] || usage; rm -f "$store/$2.tsv" && echo "removed $2" ;;
+	*) usage ;;
+esac

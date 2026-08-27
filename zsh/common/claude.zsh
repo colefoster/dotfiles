@@ -59,6 +59,7 @@ _cc_ended() {
 _CC_SESSIONS=${0:A:h}/cc-sessions
 _CC_PREVIEW=${0:A:h}/cc-preview
 _CC_KILL=${0:A:h}/cc-kill
+_CC_LAYOUT=${0:A:h}/cc-layout
 
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
@@ -197,6 +198,10 @@ claude() {
 	_cc_ended "$s" "$dir"
 	return $st
 }
+
+# Save and restore a window full of Claude sessions:
+#   cclay save [name]   cclay list   cclay restore <name>   cclay rm <name>
+cclay() { ${_CC_LAYOUT} "$@" }
 
 # List live claude sessions; with an argument, attach to the first match.
 #   ccl -s <name>   steal it, detaching whatever window has it open

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Print "<config-dir>\t<label>" for a directory: work trees keep their own login
+# so the Blockskye account never bleeds into personal projects. Mirrors
+# _cc_account in claude.zsh, for the shell scripts that launch sessions.
+#
+#   cc-account [DIR]
+
+dir=${1:-$PWD}
+lower=$(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]')
+home=$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')
+
+case $lower in
+	"$home"/work|"$home"/work/*) printf '%s\t%s\n' "$HOME/.claude-blockskye" Blockskye ;;
+	*) printf '%s\t%s\n' "$HOME/.claude" Personal ;;
+esac
