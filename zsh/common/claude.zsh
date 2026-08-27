@@ -101,6 +101,21 @@ _cc_pick() {
 	print -r -- "${sel%%$'\t'*}"
 }
 
+# A GUI app launched from inside tmux passes TMUX and TMUX_PANE on to
+# everything it spawns, so a brand-new terminal window can inherit them and
+# claim to be inside tmux while owning no pane at all. AeroSpace restarted
+# from a pane is the usual source: every Super+Enter after that opens a
+# Ghostty whose shell carries the pane it was launched from. The in-tmux
+# path then hands the session to whichever client that stale TMUX names --
+# the window it came from -- and leaves the new one sitting at a prompt.
+# A real pane's tty is this shell's tty; a borrowed one is somebody else's.
+_cc_disown_stale_tmux() {
+	[[ -n $TMUX ]] || return 0
+	local pane_tty=$(tmux display -pt "${TMUX_PANE:-none}" '#{pane_tty}' 2>/dev/null)
+	[[ $pane_tty == ${TTY:-$(tty)} ]] && return 0
+	unset TMUX TMUX_PANE
+}
+
 # Run claude inside a per-directory tmux session so quitting the terminal
 # (cmd-Q) detaches instead of killing the session.
 #
@@ -119,6 +134,7 @@ _cc_pick() {
 # Every launch first reaps sessions untouched for CC_PURGE_DAYS days.
 #
 claude() {
+	_cc_disown_stale_tmux
 	local -x CLAUDE_CONFIG_DIR CLAUDE_ACCOUNT_LABEL
 	_cc_account "$PWD"
 
