@@ -56,6 +56,7 @@ fi
 if [[ "$PLATFORM" == "macos" ]]; then
   mkdir -p "$HOME/.config/aerospace"
   link "$DOTFILES_DIR/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
+  link "$DOTFILES_DIR/theme"      "$HOME/.config/theme"
   link "$DOTFILES_DIR/sketchybar" "$HOME/.config/sketchybar"
   link "$DOTFILES_DIR/borders"    "$HOME/.config/borders"
 
