@@ -1,5 +1,10 @@
 # Global Instructions
 
+Shared by Claude Code (`~/.claude/CLAUDE.md`) and Codex (`~/.codex/AGENTS.md`, a symlink to
+this file). Two sections are Claude-Code-only — **Delegating to Codex** and **Subagents**.
+If you are Codex, skip both: you are the delegate, not the delegator, and you have no
+Claude subagent types. Everything else applies to every agent.
+
 ## Behavior
 
 - Be proactive. If you can figure something out yourself (check configs, read files, search, test endpoints, etc.), do it instead of asking the user. Only ask when you genuinely cannot proceed without their input (passwords, preferences, ambiguous intent).

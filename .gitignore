@@ -19,3 +19,14 @@ claude/hooks/*.log
 # Third-party skill, installed via `npx impeccable` — versioned upstream (Apache 2.0),
 # 148 files. Reinstall rather than vendoring someone else's tree in here.
 claude/skills/impeccable/
+
+# Third-party skill pack, installed from `threejs-awesome-graphics-agent-skills`
+# — 24 skills, 67 MB, one of them 13 MB on its own. Same call as impeccable:
+# reinstall rather than vendoring. The lockfile beside them IS tracked, so the
+# package name and version are recorded.
+claude/skills/threejs-*/
+
+# This repo is PUBLIC. The eod skill names a client's Jira site, project keys and
+# a JQL query — internal structure, not something to publish. Delete this line if
+# you'd rather version it, or move it to a private repo to keep it backed up.
+claude/skills/eod/
