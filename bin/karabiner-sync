@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Karabiner rewrites ~/.config/karabiner/karabiner.json every time you touch its
+# UI, so that file can't be a symlink into this repo — it would clobber the
+# target. It's a copy instead, which means edits made in the app don't come
+# back on their own. This brings them back.
+#
+#   karabiner-sync          show what the app has that the repo doesn't
+#   karabiner-sync --write  copy the live file into the repo
+set -euo pipefail
+
+LIVE="$HOME/.config/karabiner/karabiner.json"
+REPO="$HOME/dotfiles/karabiner/karabiner.json"
+
+[[ -f "$LIVE" ]] || { echo "No live config at $LIVE"; exit 1; }
+
+if ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$LIVE" 2>/dev/null; then
+  echo "Live config is not valid JSON — refusing to copy it over a good one."
+  exit 1
+fi
+
+if diff -q "$REPO" "$LIVE" >/dev/null 2>&1; then
+  echo "In sync."
+  exit 0
+fi
+
+if [[ "${1:-}" == "--write" ]]; then
+  cp "$LIVE" "$REPO"
+  echo "Copied live config into the repo. Commit it:"
+  echo "  cd ~/dotfiles && git add karabiner/karabiner.json && git commit"
+else
+  echo "Repo (<) vs live (>):"
+  diff "$REPO" "$LIVE" || true
+  echo
+  echo "Run 'karabiner-sync --write' to take the live version."
+fi
