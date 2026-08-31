@@ -34,7 +34,8 @@ exec-on-workspace-change = ['/bin/bash', '-c',
   '/opt/homebrew/bin/sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE'
 ]
 
-# >>> STYLE — rewritten by `mull theme`. Edit mullion/styles/<name>.sh, not here.
+# >>> STYLE — rewritten by `mull theme` / `mull layout`. Edit the style and
+# layout files under mullion/, not this block.
 accordion-padding = 30
 
 [gaps]

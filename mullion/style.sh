@@ -20,6 +20,15 @@ export ITEM_RADIUS ITEM_HEIGHT ITEM_BG FONT_SIZE PIP_STYLE
 export BORDER_WIDTH BORDER_STYLE BORDER_INACTIVE
 export GAP_INNER GAP_OUTER GAP_TOP_BUILTIN GAP_TOP_EXTERNAL ACCORDION_PADDING
 
+# --- layout: shape and contents, chosen separately from the style ----------
+LAYOUT="$(cat "$MULLION_DIR/active-layout" 2>/dev/null || echo classic)"
+[ -r "$MULLION_DIR/layouts/$LAYOUT.sh" ] || LAYOUT=classic
+. "$MULLION_DIR/layouts/$LAYOUT.sh"
+
+export LAYOUT_NAME="${LAYOUT_NAME:-$LAYOUT}" LAYOUT_ID="$LAYOUT"
+export BAR_POSITION BAR_ISLANDS BAR_TRANSPARENT PIP_MODE HIDE_EMPTY ANIMATE
+export ITEMS_LEFT ITEMS_RIGHT
+
 # The one thing every style shares: you only have the one font installed.
 export FONT="FiraCode Nerd Font"
 

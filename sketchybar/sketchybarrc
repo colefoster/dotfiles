@@ -1,87 +1,115 @@
 #!/usr/bin/env bash
-# SketchyBar — workspaces on the left, machine on the right, notch in between.
-# Every number below comes from the active style, so switching a style changes
-# the bar's shape, not just its colour. Started by AeroSpace.
+# SketchyBar, composed from two files:
+#   style   colour + geometry   (mullion/styles/<name>.sh)
+#   layout  shape + contents    (mullion/layouts/<name>.sh)
+# Neither touches a keybinding. Started by AeroSpace.
 
 CONFIG_DIR="$HOME/.config/sketchybar"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 source "$CONFIG_DIR/env.sh"
 
 ##### Bar #####
-# BAR_MARGIN > 0 lifts the bar off the screen edges so it reads as a floating
-# slab rather than a strip welded to the top.
+# A transparent bar with island brackets reads as separate floating pills;
+# an opaque one reads as a single slab.
+bar_color="$DECK"
+[ "$BAR_TRANSPARENT" = "on" ] && bar_color=0x00000000
+
 sketchybar --bar \
   height="$BAR_HEIGHT" \
-  position=top \
+  position="$BAR_POSITION" \
   sticky=on \
   margin="$BAR_MARGIN" \
   y_offset="$BAR_YOFF" \
   corner_radius="$BAR_RADIUS" \
   padding_left="$BAR_PADDING" \
   padding_right="$BAR_PADDING" \
-  color="$DECK" \
+  color="$bar_color" \
   border_width=0 \
   blur_radius="$BAR_BLUR" \
   shadow=off \
   topmost=window
 
-##### Defaults every item inherits #####
+##### Defaults #####
+anim=()
+[ "$ANIMATE" = "on" ] && anim=(--animate sin 12)
+
 sketchybar --default \
   updates=when_shown \
   icon.font="$FONT:Bold:${FONT_SIZE}.0" \
   icon.color="$INK" \
-  icon.padding_left=8 \
+  icon.padding_left=7 \
   icon.padding_right=4 \
   label.font="$FONT:Medium:${FONT_SIZE}.0" \
   label.color="$INK" \
   label.padding_left=0 \
-  label.padding_right=8 \
+  label.padding_right=7 \
   background.corner_radius="$ITEM_RADIUS" \
   background.height="$ITEM_HEIGHT" \
   background.drawing=off
 
-##### AeroSpace workspaces #####
-# AeroSpace emulates its own workspaces, so the native "space" item can't see
-# them — it fires this custom event on every switch instead (see aerospace.toml).
+##### Items #####
+# Each is a function so a layout can pick which ones exist at all.
 sketchybar --add event aerospace_workspace_change
 
-for sid in 1 2 3 4 5 6 7 8 9; do
-  sketchybar --add item space.$sid left \
-    --subscribe space.$sid aerospace_workspace_change front_app_switched \
-    --set space.$sid \
-      icon="$sid" \
-      icon.padding_left=9 \
-      icon.padding_right=9 \
-      label.drawing=off \
-      background.color="$PANEL" \
-      background.drawing=off \
-      click_script="aerospace workspace $sid" \
-      script="$PLUGIN_DIR/aerospace.sh"
-done
+add_spaces() {
+  for sid in 1 2 3 4 5 6 7 8 9; do
+    sketchybar --add item space.$sid "$1" \
+      --subscribe space.$sid aerospace_workspace_change front_app_switched \
+      --set space.$sid \
+        icon="$sid" \
+        icon.padding_left=8 \
+        icon.padding_right=8 \
+        label.drawing=off \
+        label.padding_left=0 \
+        label.padding_right=8 \
+        background.color="$PANEL" \
+        background.drawing=off \
+        click_script="aerospace workspace $sid" \
+        script="$PLUGIN_DIR/aerospace.sh"
+  done
+  sketchybar --add item space_pad "$1" --set space_pad width=6 background.drawing=off
+}
+add_front_app() {
+  sketchybar --add item front_app "$1" \
+    --subscribe front_app front_app_switched \
+    --set front_app icon.drawing=off \
+      label.font="$FONT:Bold:${FONT_SIZE}.0" label.color="$AMBER" \
+      script="$PLUGIN_DIR/front_app.sh"
+}
+add_clock()   { sketchybar --add item clock "$1" --set clock update_freq=15 \
+                  icon="󰥔" icon.color="$CYAN" script="$PLUGIN_DIR/clock.sh"; }
+add_battery() { sketchybar --add item battery "$1" \
+                  --subscribe battery power_source_change system_woke \
+                  --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh"; }
+add_cpu()     { sketchybar --add item cpu "$1" --set cpu update_freq=5 \
+                  icon="󰘚" icon.color="$CYAN" label.color="$DIM" script="$PLUGIN_DIR/cpu.sh"; }
+add_net()     { sketchybar --add item net "$1" --set net update_freq=30 \
+                  script="$PLUGIN_DIR/net.sh"; }
+add_claude()  { sketchybar --add item claude "$1" --set claude update_freq=60 \
+                  click_script="open -a Ghostty" script="$PLUGIN_DIR/claude.sh"; }
+add_rec()     { sketchybar --add item rec "$1" --set rec update_freq=15 \
+                  drawing=off script="$PLUGIN_DIR/rec.sh"; }
 
-sketchybar --add item space_pad left --set space_pad width=6 background.drawing=off
+for item in $ITEMS_LEFT;  do "add_$item" left  2>/dev/null; done
+for item in $ITEMS_RIGHT; do "add_$item" right 2>/dev/null; done
 
-##### Focused app #####
-sketchybar --add item front_app left \
-  --subscribe front_app front_app_switched \
-  --set front_app \
-    icon.drawing=off \
-    label.font="$FONT:Bold:${FONT_SIZE}.0" \
-    label.color="$AMBER" \
-    script="$PLUGIN_DIR/front_app.sh"
+##### Islands #####
+# Brackets draw one rounded background behind a group of items.
+if [ "$BAR_ISLANDS" = "on" ]; then
+  left_items=""
+  for i in $ITEMS_LEFT; do
+    [ "$i" = spaces ] && left_items="$left_items space.1 space.2 space.3 space.4 space.5 space.6 space.7 space.8 space.9" \
+                      || left_items="$left_items $i"
+  done
+  # shellcheck disable=SC2086
+  sketchybar --add bracket isle_left $left_items \
+    --set isle_left background.color="$DECK" background.corner_radius="$ITEM_RADIUS" \
+      background.height=$((ITEM_HEIGHT + 4)) background.drawing=on
+  # shellcheck disable=SC2086
+  sketchybar --add bracket isle_right $ITEMS_RIGHT \
+    --set isle_right background.color="$DECK" background.corner_radius="$ITEM_RADIUS" \
+      background.height=$((ITEM_HEIGHT + 4)) background.drawing=on
+fi
 
-##### Right side #####
-sketchybar --add item clock right \
-  --set clock update_freq=15 icon="󰥔" icon.color="$CYAN" \
-    script="$PLUGIN_DIR/clock.sh"
-
-sketchybar --add item battery right \
-  --subscribe battery power_source_change system_woke \
-  --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh"
-
-sketchybar --add item cpu right \
-  --set cpu update_freq=5 icon="󰘚" icon.color="$CYAN" label.color="$DIM" \
-    script="$PLUGIN_DIR/cpu.sh"
-
-##### Go #####
+[ ${#anim[@]} -gt 0 ] && sketchybar "${anim[@]}" --update
 sketchybar --update

@@ -7,7 +7,8 @@
 #
 #   mull                 what's running, and how it's set
 #   mull start|stop|restart
-#   mull theme [name]    list or switch the look
+#   mull theme [name]    list or switch the look — colour and geometry
+#   mull layout [name]   list or switch the bar — shape and contents
 #   mull reload          re-read configs without moving a window
 #   mull keys [filter]   the keymap, from the config itself
 #   mull edit [what]     open a config in $EDITOR
@@ -35,9 +36,12 @@ cmd_status() {
   printf '  %s sketchybar  %s\n' "$(dot sketchybar)" "${c_dim}bar${c_off}"
   printf '  %s borders     %s\n' "$(dot borders)"    "${c_dim}focus ring${c_off}"
   printf '  %s karabiner   %s\n' "$(dot karabiner_grabber)" "${c_dim}caps → ⌘⌃⌥${c_off}"
-  printf '\n  style   %s%s%s  %sgaps %s · ring %s %s · bar %spx · pip %s%s\n' \
+  printf '\n  style   %s%s%s  %sgaps %s · ring %s %s · pip %s%s\n' \
     "$c_amber" "$STYLE_NAME" "$c_off" "$c_dim" \
-    "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$BAR_HEIGHT" "$PIP_STYLE" "$c_off"
+    "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$PIP_STYLE" "$c_off"
+  printf '  layout  %s%s%s  %s%s bar · %spx · %s%s\n' \
+    "$c_amber" "$LAYOUT_NAME" "$c_off" "$c_dim" \
+    "$BAR_POSITION" "$BAR_HEIGHT" "$ITEMS_RIGHT" "$c_off"
   if running AeroSpace; then
     printf '  space   %s%s%s\n' "$c_dim" "$("$BREW/aerospace" list-workspaces --focused 2>/dev/null || echo '?')" "$c_off"
   fi
@@ -69,6 +73,48 @@ cmd_reload() {
   return 0
 }
 
+# ---------------------------------------------------------------- gaps
+# Gaps live in aerospace.toml, so they're pushed into a marked block there.
+# The bar's edge comes from the layout, so a bottom bar moves the reserved
+# strip from the top of the screen to the foot of it.
+write_gaps() {
+  [ -w "$TOML" ] || return 0
+  # shellcheck disable=SC1090,SC1091
+  ( . "$STYLES/$(cat "$DIR/active").sh"
+    . "$DIR/layouts/$(cat "$DIR/active-layout").sh"
+    python3 - "$TOML" "$ACCORDION_PADDING" "$GAP_INNER" "$GAP_OUTER" \
+                      "$GAP_TOP_BUILTIN" "$GAP_TOP_EXTERNAL" "$BAR_POSITION" <<'PY'
+import sys, re, pathlib
+toml, acc, inner, outer, tb, te, pos = sys.argv[1:8]
+outer = int(outer)
+if pos == "bottom":
+    top_b, top_e, bottom = outer, outer, te
+    note = "# The bar is at the foot of the screen, so the reserved strip is too."
+else:
+    top_b, top_e, bottom = tb, te, outer
+    note = ("# Room for SketchyBar. The built-in display already starts below the notch\n"
+            "# strip, so it needs less than the external one.")
+p = pathlib.Path(toml); s = p.read_text()
+block = f"""# >>> STYLE — rewritten by `mull theme` / `mull layout`. Edit the style and
+# layout files under mullion/, not this block.
+accordion-padding = {acc}
+
+[gaps]
+inner.horizontal = {inner}
+inner.vertical   = {inner}
+outer.left       = {outer}
+outer.right      = {outer}
+outer.bottom     = {bottom}
+{note}
+outer.top        = [{{ monitor.'built-in' = {top_b} }}, {top_e}]
+# <<< STYLE"""
+new = re.sub(r"# >>> STYLE.*?# <<< STYLE", block, s, flags=re.S)
+if new != s:
+    p.write_text(new)
+PY
+  )
+}
+
 # ---------------------------------------------------------------- theme
 cmd_theme() {
   local active; active="$(cat "$DIR/active" 2>/dev/null || echo deck)"
@@ -90,35 +136,38 @@ cmd_theme() {
   . "$STYLES/$name.sh"
   printf '%s\n' "$name" > "$DIR/active"
 
-  # Gaps live in aerospace.toml, so push them into the marked block there.
-  if [ -w "$TOML" ]; then
-    python3 - "$TOML" "$ACCORDION_PADDING" "$GAP_INNER" "$GAP_OUTER" \
-                      "$GAP_TOP_BUILTIN" "$GAP_TOP_EXTERNAL" <<'PY'
-import sys, re, pathlib
-toml, acc, inner, outer, tb, te = sys.argv[1:7]
-p = pathlib.Path(toml); s = p.read_text()
-block = f"""# >>> STYLE — rewritten by `mull theme`. Edit mullion/styles/<name>.sh, not here.
-accordion-padding = {acc}
-
-[gaps]
-inner.horizontal = {inner}
-inner.vertical   = {inner}
-outer.left       = {outer}
-outer.right      = {outer}
-outer.bottom     = {outer}
-# Room for SketchyBar. The built-in display already starts below the notch
-# strip, so it needs less than the external one.
-outer.top        = [{{ monitor.'built-in' = {tb} }}, {te}]
-# <<< STYLE"""
-new = re.sub(r"# >>> STYLE.*?# <<< STYLE", block, s, flags=re.S)
-if new != s:
-    p.write_text(new)
-PY
-  fi
+  write_gaps
 
   printf '%sStyle%s  %s%s%s\n' "$c_b" "$c_off" "$c_amber" "$NAME" "$c_off"
   printf '  %sgaps %s · ring %s %s · bar %spx r%s · pip %s%s\n' "$c_dim" \
     "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$BAR_HEIGHT" "$BAR_RADIUS" "$PIP_STYLE" "$c_off"
+  cmd_reload
+}
+
+# ---------------------------------------------------------------- layout
+cmd_layout() {
+  local active; active="$(cat "$DIR/active-layout" 2>/dev/null || echo classic)"
+  if [ $# -eq 0 ]; then
+    printf '  %-9s %-9s %-7s %-8s %-7s %s\n' NAME LABEL EDGE PIPS SHAPE CONTENTS
+    for f in "$DIR"/layouts/*.sh; do
+      local n; n="$(basename "$f" .sh)"
+      ( set -a; . "$f"; set +a
+        local mark=" "; [ "$n" = "$active" ] && mark="${c_amber}*${c_off}"
+        local shape=slab; [ "$BAR_ISLANDS" = on ] && shape=islands
+        [ "$BAR_TRANSPARENT" = on ] && [ "$BAR_ISLANDS" = off ] && shape=clear
+        printf '%b %-9s %-9s %-7s %-8s %-7s %s\n' "$mark" "$n" "$LAYOUT_NAME" \
+          "$BAR_POSITION" "$PIP_MODE" "$shape" "$ITEMS_RIGHT" )
+    done
+    return 0
+  fi
+  local name=$1
+  [ -r "$DIR/layouts/$name.sh" ] || { echo "No layout '$name'. Try: mull layout"; exit 1; }
+  # shellcheck disable=SC1090
+  . "$DIR/layouts/$name.sh"
+  printf '%s\n' "$name" > "$DIR/active-layout"
+  write_gaps
+  printf '%sLayout%s %s%s%s\n' "$c_b" "$c_off" "$c_amber" "$LAYOUT_NAME" "$c_off"
+  printf '  %s%s bar · %s pips · %s%s\n' "$c_dim" "$BAR_POSITION" "$PIP_MODE" "$ITEMS_RIGHT" "$c_off"
   cmd_reload
 }
 
@@ -164,9 +213,10 @@ cmd_edit() {
     keys|aerospace|toml) target="$TOML" ;;
     bar|sketchybar)      target="$HOME/.config/sketchybar/sketchybarrc" ;;
     style|styles)        target="$STYLES/$(cat "$DIR/active")".sh ;;
+    layout)              target="$DIR/layouts/$(cat "$DIR/active-layout")".sh ;;
     borders)             target="$HOME/.config/borders/bordersrc" ;;
     karabiner)           target="$HOME/.config/karabiner/karabiner.json" ;;
-    *) echo "what: keys | bar | style | borders | karabiner"; exit 1 ;;
+    *) echo "what: keys | bar | style | layout | borders | karabiner"; exit 1 ;;
   esac
   "${EDITOR:-vi}" "$target"
   [ "$what" = keys ] || [ "$what" = aerospace ] || [ "$what" = toml ] && cmd_reload || true
@@ -219,6 +269,7 @@ case "${1:-status}" in
   restart)     cmd_restart ;;
   reload)      cmd_reload ;;
   theme|style) shift; cmd_theme "$@" ;;
+  layout|bar)  shift; cmd_layout "$@" ;;
   keys)        shift; cmd_keys "${1:-}" ;;
   edit)        shift; cmd_edit "${1:-keys}" ;;
   doctor)      cmd_doctor ;;
