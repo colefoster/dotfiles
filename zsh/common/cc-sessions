@@ -20,12 +20,16 @@
 #
 # Work directories use a separate config root, so both are searched.
 
+
+# Work account dir/label — set in the gitignored local.zsh; see cc-account.
+: "${CC_WORK_CONFIG:=$HOME/.claude-work}"
+: "${CC_WORK_LABEL:=Work}"
 days=${CC_PURGE_DAYS:-10}
 now=$(date +%s)
 cwd=${CC_CWD:-$PWD}
 tab=$(printf '\t')
 
-roots="$HOME/.claude $HOME/.claude-blockskye"
+roots="$HOME/.claude $CC_WORK_CONFIG"
 
 # tmux session name -> claude session id, for every live Claude that recorded one.
 map=$(

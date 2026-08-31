@@ -14,14 +14,19 @@ ch() {
 }
 
 # Pick the config dir (login, auth, history) for a directory. Work dirs get
-# their own so the Blockskye account never bleeds into personal projects. The
+# their own so the work account never bleeds into personal projects. The
 # label is only cosmetic — the status line reads it to show which account is in
 # use. Assigns to the caller's CLAUDE_CONFIG_DIR / CLAUDE_ACCOUNT_LABEL.
+
+# Set the real values in the gitignored zsh/<platform>/local.zsh.
+export CC_WORK_CONFIG="${CC_WORK_CONFIG:-$HOME/.claude-work}"
+export CC_WORK_LABEL="${CC_WORK_LABEL:-Work}"
+
 _cc_account() {
 	case ${1:l} in
 		${HOME:l}/work|${HOME:l}/work/*)
-			CLAUDE_CONFIG_DIR=$HOME/.claude-blockskye
-			CLAUDE_ACCOUNT_LABEL=Blockskye ;;
+			CLAUDE_CONFIG_DIR=$CC_WORK_CONFIG
+			CLAUDE_ACCOUNT_LABEL=$CC_WORK_LABEL ;;
 		*)
 			CLAUDE_CONFIG_DIR=$HOME/.claude
 			CLAUDE_ACCOUNT_LABEL=Personal ;;

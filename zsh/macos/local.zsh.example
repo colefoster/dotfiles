@@ -29,3 +29,8 @@
 
 # SSH aliases
 # alias myserver="ssh user@host"
+
+# Claude sessions under ~/work log in as a separate account. Name it here so the
+# client's name stays out of the public repo. Defaults to ~/.claude-work / "Work".
+# export CC_WORK_CONFIG="$HOME/.claude-acme"
+# export CC_WORK_LABEL="Acme"

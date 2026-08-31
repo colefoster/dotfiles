@@ -13,6 +13,10 @@
 # tmux sessions survive quitting the terminal — they only die with the machine
 # or the tmux server. This is for the times they do die.
 
+
+# Work account dir/label — set in the gitignored local.zsh; see cc-account.
+: "${CC_WORK_CONFIG:=$HOME/.claude-work}"
+: "${CC_WORK_LABEL:=Work}"
 store=${CC_LAYOUT_DIR:-$HOME/.claude/layouts}
 here=$(dirname "$0")
 tab=$(printf '\t')
@@ -26,7 +30,7 @@ usage() {
 # Both config roots record live sessions, keyed by "<session>:@win.%pane".
 pane_sid() {
 	jq -r --arg t "$1" 'select(.tmux == $t) | .sessionId // empty' \
-		"$HOME"/.claude/sessions/*.json "$HOME"/.claude-blockskye/sessions/*.json 2>/dev/null |
+		"$HOME"/.claude/sessions/*.json "$CC_WORK_CONFIG"/sessions/*.json 2>/dev/null |
 		head -1
 }
 
@@ -113,7 +117,7 @@ cmd_restore() {
 	ids=$(mktemp)
 	awk -F"$tab" 'NR > 1 && $3 != "" { print $3 }' "$file" > "$ids"
 	busy=$(jq -r '.sessionId // empty' "$HOME"/.claude/sessions/*.json \
-		"$HOME"/.claude-blockskye/sessions/*.json 2>/dev/null |
+		"$CC_WORK_CONFIG"/sessions/*.json 2>/dev/null |
 		grep -c -Fx -f "$ids")
 	rm -f "$ids"
 	[ "$busy" = 0 ] || echo "cc-layout: $busy of these conversations are already open somewhere" >&2

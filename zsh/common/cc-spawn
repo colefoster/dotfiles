@@ -18,6 +18,10 @@
 # Meant to be run by Claude from inside a wrapped session, so handing work to a
 # parallel session costs no copy-paste.
 
+
+# Work account dir/label — set in the gitignored local.zsh; see cc-account.
+: "${CC_WORK_CONFIG:=$HOME/.claude-work}"
+: "${CC_WORK_LABEL:=Work}"
 set -e
 
 dir=$PWD
@@ -64,7 +68,7 @@ dir=$(cd "$dir" && pwd)
 # session spawned into a work directory does not come up on the personal one.
 case $(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]') in
 	"$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')"/work|"$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')"/work/*)
-		cfg=$HOME/.claude-blockskye; label=Blockskye ;;
+		cfg=$CC_WORK_CONFIG; label=$CC_WORK_LABEL ;;
 	*)
 		cfg=$HOME/.claude; label=Personal ;;
 esac

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Print "<config-dir>\t<label>" for a directory: work trees keep their own login
-# so the Blockskye account never bleeds into personal projects. Mirrors
+# so the work account never bleeds into personal projects. Mirrors
 # _cc_account in claude.zsh, for the shell scripts that launch sessions.
 #
 #   cc-account [DIR]
@@ -8,8 +8,14 @@
 dir=${1:-$PWD}
 lower=$(printf '%s' "$dir" | tr '[:upper:]' '[:lower:]')
 home=$(printf '%s' "$HOME" | tr '[:upper:]' '[:lower:]')
+# The work account's config dir and label come from the gitignored local.zsh,
+# so a client name never lands in a public repo. Fallbacks keep this working
+# on a fresh machine.
+: "${CC_WORK_CONFIG:=$HOME/.claude-work}"
+: "${CC_WORK_LABEL:=Work}"
+
 
 case $lower in
-	"$home"/work|"$home"/work/*) printf '%s\t%s\n' "$HOME/.claude-blockskye" Blockskye ;;
+	"$home"/work|"$home"/work/*) printf '%s\t%s\n' "$CC_WORK_CONFIG" "$CC_WORK_LABEL" ;;
 	*) printf '%s\t%s\n' "$HOME/.claude" Personal ;;
 esac
