@@ -25,8 +25,10 @@ accordion-padding = 30
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'   # split along the monitor's long edge
 
-# Follow focus with the pointer so hover-scroll and clicks land where you look
+# Follow focus with the pointer so hover-scroll and clicks land where you look —
+# and so a keyboard focus jump doesn't leave the cursor stranded on another window.
 on-focused-monitor-changed = ['move-mouse monitor-lazy-center']
+on-focus-changed = ['move-mouse window-lazy-center']
 
 # Tell SketchyBar which workspace is live
 exec-on-workspace-change = ['/bin/bash', '-c',
@@ -57,6 +59,25 @@ if.app-id = 'com.apple.finder'
 if.window-title-regex-substring = 'Info'
 run = 'layout floating'
 
+# Utilities and pop-ups behave the way they did before — they float, you drag
+# them, Rectangle still snaps them. Only the windows you actually work in tile.
+# Drop an app off this list once you'd rather it took a slot.
+[[on-window-detected]]
+if.app-id = 'org.keepassxc.keepassxc'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'org.p0deje.Maccy'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'eu.exelban.Stats'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-id = 'net.whatsapp.WhatsApp'
+run = 'layout floating'
+
 # ─────────────────────────────────────────────────────────────────────
 # Super = caps = cmd-ctrl-alt
 # ─────────────────────────────────────────────────────────────────────
@@ -66,23 +87,39 @@ run = 'layout floating'
 cmd-ctrl-alt-enter   = 'exec-and-forget open -na Ghostty'
 cmd-ctrl-alt-shift-q = 'close'
 
-# Focus — hjkl, the keys you drilled. Arrows are left alone so Rectangle
-# (still installed, ⌃⌥-arrows) has nothing to argue with.
-cmd-ctrl-alt-h = 'focus left'
-cmd-ctrl-alt-j = 'focus down'
-cmd-ctrl-alt-k = 'focus up'
-cmd-ctrl-alt-l = 'focus right'
+# Panic button. Turns tiling off entirely and hands every window back to macOS,
+# exactly as it was. Press it again to resume. Learn this one first — knowing you
+# can bail in one chord is what makes the rest safe to try.
+cmd-ctrl-alt-shift-e = 'enable toggle'
+
+# Focus — hjkl, and the arrows for as long as you still reach for them.
+# Rectangle sits on ⌃⌥-arrows, which is a different chord to ⌘⌃⌥-arrows, so both
+# can live here.
+cmd-ctrl-alt-h     = 'focus left'
+cmd-ctrl-alt-j     = 'focus down'
+cmd-ctrl-alt-k     = 'focus up'
+cmd-ctrl-alt-l     = 'focus right'
+cmd-ctrl-alt-left  = 'focus left'
+cmd-ctrl-alt-down  = 'focus down'
+cmd-ctrl-alt-up    = 'focus up'
+cmd-ctrl-alt-right = 'focus right'
 
 # Move
-cmd-ctrl-alt-shift-h = 'move left'
-cmd-ctrl-alt-shift-j = 'move down'
-cmd-ctrl-alt-shift-k = 'move up'
-cmd-ctrl-alt-shift-l = 'move right'
+cmd-ctrl-alt-shift-h     = 'move left'
+cmd-ctrl-alt-shift-j     = 'move down'
+cmd-ctrl-alt-shift-k     = 'move up'
+cmd-ctrl-alt-shift-l     = 'move right'
+cmd-ctrl-alt-shift-left  = 'move left'
+cmd-ctrl-alt-shift-down  = 'move down'
+cmd-ctrl-alt-shift-up    = 'move up'
+cmd-ctrl-alt-shift-right = 'move right'
 
 # Layout
 cmd-ctrl-alt-slash       = 'layout tiles horizontal vertical'
 cmd-ctrl-alt-comma       = 'layout accordion horizontal vertical'
 cmd-ctrl-alt-f           = 'fullscreen'
+# The per-window escape hatch: pop one window out of the tiling and it behaves
+# like any other Mac window again — drag it, overlap it, snap it with Rectangle.
 cmd-ctrl-alt-shift-space = 'layout floating tiling'
 cmd-ctrl-alt-shift-minus = 'resize smart -50'
 cmd-ctrl-alt-shift-equal = 'resize smart +50'
