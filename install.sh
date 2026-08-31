@@ -93,3 +93,8 @@ fi
 
 echo ""
 echo "Done! Restart your shell or run: source ~/.zshrc"
+echo ""
+echo "Not handled here, on purpose:"
+echo "  packages       brew bundle install --file=$DOTFILES_DIR/Brewfile"
+echo "  macOS settings bash $DOTFILES_DIR/macos-defaults.sh"
+echo "  permissions    Accessibility + Input Monitoring — System Settings, by hand"
