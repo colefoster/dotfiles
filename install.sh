@@ -48,7 +48,7 @@ if [[ "$PLATFORM" == "macos" ]]; then
     "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
 fi
 
-# Window manager: AeroSpace + SketchyBar + JankyBorders.
+# Mullion — the desktop: AeroSpace + SketchyBar + JankyBorders + caps→hyper.
 #   brew install --cask nikitabobko/tap/aerospace
 #   brew install FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
 # Nothing starts at login. AeroSpace launches the bar and the borders itself,
@@ -56,9 +56,14 @@ fi
 if [[ "$PLATFORM" == "macos" ]]; then
   mkdir -p "$HOME/.config/aerospace"
   link "$DOTFILES_DIR/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
-  link "$DOTFILES_DIR/theme"      "$HOME/.config/theme"
+  link "$DOTFILES_DIR/mullion"    "$HOME/.config/mullion"
   link "$DOTFILES_DIR/sketchybar" "$HOME/.config/sketchybar"
   link "$DOTFILES_DIR/borders"    "$HOME/.config/borders"
+
+  # One command for the whole desktop, plus the short alias.
+  mkdir -p "$HOME/.local/bin"
+  link "$DOTFILES_DIR/mullion/mullion" "$HOME/.local/bin/mullion"
+  link "$DOTFILES_DIR/mullion/mullion" "$HOME/.local/bin/mull"
 
   # Karabiner rewrites karabiner.json in place whenever you touch its UI, which
   # would clobber a symlink's target. Copy it, and only when there is nothing
@@ -97,4 +102,5 @@ echo ""
 echo "Not handled here, on purpose:"
 echo "  packages       brew bundle install --file=$DOTFILES_DIR/Brewfile"
 echo "  macOS settings bash $DOTFILES_DIR/macos-defaults.sh"
+echo "  then           mull doctor"
 echo "  permissions    Accessibility + Input Monitoring — System Settings, by hand"

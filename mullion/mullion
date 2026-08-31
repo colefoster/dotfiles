@@ -1,0 +1,228 @@
+#!/usr/bin/env bash
+# Mullion — the thin bar between panes.
+#
+# One command for the whole desktop: AeroSpace does the tiling, SketchyBar draws
+# the bar, JankyBorders draws the focus ring, Karabiner turns Caps Lock into the
+# super key. AeroSpace launches the other two itself, so start/stop is one switch.
+#
+#   mull                 what's running, and how it's set
+#   mull start|stop|restart
+#   mull theme [name]    list or switch the look
+#   mull reload          re-read configs without moving a window
+#   mull keys [filter]   the keymap, from the config itself
+#   mull edit [what]     open a config in $EDITOR
+#   mull doctor          check installs and permissions
+set -euo pipefail
+
+DIR="$HOME/.config/mullion"
+STYLES="$DIR/styles"
+TOML="$HOME/.config/aerospace/aerospace.toml"
+BREW=/opt/homebrew/bin
+
+c_dim=$'\033[2m'; c_b=$'\033[1m'; c_amber=$'\033[33m'; c_green=$'\033[32m'
+c_red=$'\033[31m'; c_off=$'\033[0m'
+[ -t 1 ] || { c_dim=; c_b=; c_amber=; c_green=; c_red=; c_off=; }
+
+running() { pgrep -x "$1" >/dev/null 2>&1; }
+dot() { running "$1" && printf '%s●%s' "$c_green" "$c_off" || printf '%s○%s' "$c_dim" "$c_off"; }
+
+# ---------------------------------------------------------------- status
+cmd_status() {
+  # shellcheck disable=SC1091
+  . "$DIR/style.sh"
+  printf '%sMullion%s  %s\n' "$c_b" "$c_off" "$(running AeroSpace && echo "${c_green}up${c_off}" || echo "${c_dim}down${c_off}")"
+  printf '  %s aerospace   %s\n' "$(dot AeroSpace)"  "${c_dim}tiling${c_off}"
+  printf '  %s sketchybar  %s\n' "$(dot sketchybar)" "${c_dim}bar${c_off}"
+  printf '  %s borders     %s\n' "$(dot borders)"    "${c_dim}focus ring${c_off}"
+  printf '  %s karabiner   %s\n' "$(dot karabiner_grabber)" "${c_dim}caps → ⌘⌃⌥${c_off}"
+  printf '\n  style   %s%s%s  %sgaps %s · ring %s %s · bar %spx · pip %s%s\n' \
+    "$c_amber" "$STYLE_NAME" "$c_off" "$c_dim" \
+    "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$BAR_HEIGHT" "$PIP_STYLE" "$c_off"
+  if running AeroSpace; then
+    printf '  space   %s%s%s\n' "$c_dim" "$("$BREW/aerospace" list-workspaces --focused 2>/dev/null || echo '?')" "$c_off"
+  fi
+}
+
+# ---------------------------------------------------------------- lifecycle
+cmd_start() {
+  running AeroSpace && { echo "Already up."; exit 0; }
+  open -a AeroSpace
+  echo "AeroSpace starting — it brings up the bar and the borders itself."
+}
+cmd_stop() {
+  running AeroSpace && osascript -e 'quit app "AeroSpace"' 2>/dev/null || true
+  pkill -x sketchybar 2>/dev/null || true
+  pkill -x borders 2>/dev/null || true
+  echo "Stopped. Windows are back under macOS."
+}
+cmd_restart() { cmd_stop; sleep 1; cmd_start; }
+
+cmd_reload() {
+  local did=0
+  if running AeroSpace; then "$BREW/aerospace" reload-config >/dev/null && echo "  aerospace config reloaded"; did=1; fi
+  if running sketchybar; then "$BREW/sketchybar" --reload >/dev/null 2>&1 && echo "  sketchybar reloaded"; did=1; fi
+  if running borders; then
+    pkill -x borders || true; "$HOME/.config/borders/bordersrc" >/dev/null 2>&1 &
+    echo "  borders reloaded"; did=1
+  fi
+  [ "$did" = 0 ] && echo "Nothing running to reload."
+  return 0
+}
+
+# ---------------------------------------------------------------- theme
+cmd_theme() {
+  local active; active="$(cat "$DIR/active" 2>/dev/null || echo deck)"
+  if [ $# -eq 0 ]; then
+    printf '  %-10s %-9s %-5s %-13s %-10s %s\n' NAME LABEL GAPS RING BAR PIP
+    for f in "$STYLES"/*.sh; do
+      local n; n="$(basename "$f" .sh)"
+      ( set -a; . "$f"; set +a
+        local mark=" "; [ "$n" = "$active" ] && mark="${c_amber}*${c_off}"
+        printf '%b %-10s %-9s %-5s %-13s %-10s %s\n' "$mark" "$n" "$NAME" \
+          "$GAP_INNER" "$BORDER_WIDTH $BORDER_STYLE" "${BAR_HEIGHT}px" "$PIP_STYLE" )
+    done
+    return 0
+  fi
+
+  local name=$1
+  [ -r "$STYLES/$name.sh" ] || { echo "No style '$name'. Try: mull theme"; exit 1; }
+  # shellcheck disable=SC1090
+  . "$STYLES/$name.sh"
+  printf '%s\n' "$name" > "$DIR/active"
+
+  # Gaps live in aerospace.toml, so push them into the marked block there.
+  if [ -w "$TOML" ]; then
+    python3 - "$TOML" "$ACCORDION_PADDING" "$GAP_INNER" "$GAP_OUTER" \
+                      "$GAP_TOP_BUILTIN" "$GAP_TOP_EXTERNAL" <<'PY'
+import sys, re, pathlib
+toml, acc, inner, outer, tb, te = sys.argv[1:7]
+p = pathlib.Path(toml); s = p.read_text()
+block = f"""# >>> STYLE — rewritten by `mull theme`. Edit mullion/styles/<name>.sh, not here.
+accordion-padding = {acc}
+
+[gaps]
+inner.horizontal = {inner}
+inner.vertical   = {inner}
+outer.left       = {outer}
+outer.right      = {outer}
+outer.bottom     = {outer}
+# Room for SketchyBar. The built-in display already starts below the notch
+# strip, so it needs less than the external one.
+outer.top        = [{{ monitor.'built-in' = {tb} }}, {te}]
+# <<< STYLE"""
+new = re.sub(r"# >>> STYLE.*?# <<< STYLE", block, s, flags=re.S)
+if new != s:
+    p.write_text(new)
+PY
+  fi
+
+  printf '%sStyle%s  %s%s%s\n' "$c_b" "$c_off" "$c_amber" "$NAME" "$c_off"
+  printf '  %sgaps %s · ring %s %s · bar %spx r%s · pip %s%s\n' "$c_dim" \
+    "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$BAR_HEIGHT" "$BAR_RADIUS" "$PIP_STYLE" "$c_off"
+  cmd_reload
+}
+
+# ---------------------------------------------------------------- keys
+cmd_keys() {
+  local filter="${1:-}"
+  python3 - "$TOML" "$filter" "$([ -t 1 ] && echo 1 || echo 0)" <<'PY'
+import sys, re, pathlib
+try:
+    import tomllib as toml
+except ImportError:
+    import tomli as toml
+path, filt, tty = sys.argv[1], sys.argv[2].lower(), sys.argv[3] == "1"
+B, Y, D, O = ("\033[1m", "\033[33m", "\033[2m", "\033[0m") if tty else ("", "", "", "")
+cfg = toml.loads(pathlib.Path(path).read_text())
+SUP = ("cmd-ctrl-alt", "ctrl-alt-cmd", "cmd-alt-ctrl")
+for mode, body in cfg.get("mode", {}).items():
+    rows = []
+    for chord, cmd in body.get("binding", {}).items():
+        if isinstance(cmd, list):
+            cmd = " ; ".join(cmd)
+        pretty = chord
+        for s in SUP:
+            if chord.startswith(s + "-"):
+                pretty = "caps-" + chord[len(s) + 1:]
+                break
+        if filt and filt not in pretty.lower() and filt not in cmd.lower():
+            continue
+        rows.append((pretty, cmd))
+    if not rows:
+        continue
+    print(f"\n{B}{mode}{O}")
+    w = max(len(r[0]) for r in rows)
+    for chord, cmd in sorted(rows, key=lambda r: (len(r[0]), r[0])):
+        print(f"  {Y}{chord:<{w}}{O}  {D}{cmd}{O}")
+PY
+}
+
+# ---------------------------------------------------------------- edit
+cmd_edit() {
+  local what="${1:-keys}" target
+  case "$what" in
+    keys|aerospace|toml) target="$TOML" ;;
+    bar|sketchybar)      target="$HOME/.config/sketchybar/sketchybarrc" ;;
+    style|styles)        target="$STYLES/$(cat "$DIR/active")".sh ;;
+    borders)             target="$HOME/.config/borders/bordersrc" ;;
+    karabiner)           target="$HOME/.config/karabiner/karabiner.json" ;;
+    *) echo "what: keys | bar | style | borders | karabiner"; exit 1 ;;
+  esac
+  "${EDITOR:-vi}" "$target"
+  [ "$what" = keys ] || [ "$what" = aerospace ] || [ "$what" = toml ] && cmd_reload || true
+}
+
+# ---------------------------------------------------------------- doctor
+cmd_doctor() {
+  local bad=0
+  chk() { # name, test-command, hint
+    if eval "$2" >/dev/null 2>&1; then printf '  %s✓%s %s\n' "$c_green" "$c_off" "$1"
+    else printf '  %s✗%s %s\n    %s%s%s\n' "$c_red" "$c_off" "$1" "$c_dim" "$3" "$c_off"; bad=1; fi
+  }
+  echo "${c_b}Installed${c_off}"
+  chk "aerospace"   "command -v $BREW/aerospace"  "brew install --cask nikitabobko/tap/aerospace"
+  chk "sketchybar"  "command -v $BREW/sketchybar" "brew install FelixKratz/formulae/sketchybar"
+  chk "borders"     "command -v $BREW/borders"    "brew install FelixKratz/formulae/borders"
+  if [ -d /Applications/Karabiner-Elements.app ]; then
+    printf '  %s✓%s karabiner\n' "$c_green" "$c_off"
+  elif [ -d /opt/homebrew/Caskroom/karabiner-elements ]; then
+    printf '  %s✗%s karabiner — cask downloaded, but the .pkg was never run\n    %s%s%s\n' \
+      "$c_red" "$c_off" "$c_dim" "brew reinstall --cask karabiner-elements   # needs your admin password" "$c_off"
+    bad=1
+  else
+    printf '  %s✗%s karabiner\n    %s%s%s\n' "$c_red" "$c_off" "$c_dim" \
+      "brew install --cask karabiner-elements" "$c_off"
+    bad=1
+  fi
+  echo "${c_b}Config${c_off}"
+  chk "aerospace.toml linked" "test -L $TOML" "run ~/dotfiles/install.sh"
+  chk "mullion linked"        "test -L $DIR"  "run ~/dotfiles/install.sh"
+  chk "caps → hyper rule"     "grep -q caps_lock $HOME/.config/karabiner/karabiner.json" \
+                              "run ~/dotfiles/install.sh, then open Karabiner once"
+  if [ ! -d /Applications/Karabiner-Elements.app ]; then
+    printf '    %sthe rule is written, but nothing is reading it — no super key until Karabiner is installed%s\n' \
+      "$c_amber" "$c_off"
+  fi
+  chk "config parses"         "$BREW/aerospace reload-config --dry-run || ! pgrep -x AeroSpace" \
+                              "aerospace reload-config --dry-run"
+  echo "${c_b}Permissions — only you can grant these${c_off}"
+  printf '  %s·%s AeroSpace   System Settings → Privacy & Security → Accessibility\n' "$c_dim" "$c_off"
+  printf '  %s·%s Karabiner   Privacy & Security → Input Monitoring, plus its driver extension\n' "$c_dim" "$c_off"
+  return $bad
+}
+
+# ---------------------------------------------------------------- main
+case "${1:-status}" in
+  ""|status)   cmd_status ;;
+  start)       cmd_start ;;
+  stop)        cmd_stop ;;
+  restart)     cmd_restart ;;
+  reload)      cmd_reload ;;
+  theme|style) shift; cmd_theme "$@" ;;
+  keys)        shift; cmd_keys "${1:-}" ;;
+  edit)        shift; cmd_edit "${1:-keys}" ;;
+  doctor)      cmd_doctor ;;
+  -h|--help|help)
+    /usr/bin/awk 'NR>1 && /^#/ {sub(/^# ?/,""); print; next} NR>1 {exit}' "$0" ;;
+  *) echo "mull: unknown command '$1' — try 'mull help'"; exit 1 ;;
+esac

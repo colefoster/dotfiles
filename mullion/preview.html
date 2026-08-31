@@ -1,5 +1,5 @@
 <meta charset="utf-8">
-<title>Desk Styles</title>
+<title>Mullion Styles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -61,13 +61,13 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </style>
 <div class="wrap">
 <header>
-  <div><h1>Desk Styles<span class="sub">appearance only</span></h1></div>
+  <div><h1>Mullion<span class="sub">appearance only</span></h1></div>
   <p>Six complete looks — colour, gap size, focus-ring weight, bar shape, and how the active
-     workspace is marked. Every number is read from <code>~/dotfiles/theme/styles/</code>, so the
+     workspace is marked. Every number is read from <code>~/dotfiles/mullion/styles/</code>, so the
      mock-ups are drawn from the same values the daemons use. None of them touches a keybinding.</p>
 </header>
 <div class="grid"><section class="style">
-  <div class="shead"><div class="top"><h2>Deck</h2><code>theme-set deck</code></div>
+  <div class="shead"><div class="top"><h2>Deck</h2><code>mull theme deck</code></div>
     <p>Deck — the original. Moderate gaps, a thick round focus ring, flush bar with a filled chip on the active workspace.</p></div>
   <div class="shot"><div class="screen" style="background:#0b1016e6">
   <div class="bar" style="height:19.84px;top:0.0px;left:0.0px;right:0.0px;
@@ -87,7 +87,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 8px</span><span class="f"><b>ring</b> 5.0px round</span><span class="f"><b>bar</b> 32px, flush</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 30px</span><span class="f"><i style="background:#f2a93bff"></i>focus</span><span class="f"><i style="background:#0b1016e6"></i>ground</span><span class="f"><i style="background:#4fb3c4ff"></i>icons</span></div>
 </section><section class="style">
-  <div class="shead"><div class="top"><h2>Ubuntu</h2><code>theme-set ubuntu</code></div>
+  <div class="shead"><div class="top"><h2>Ubuntu</h2><code>mull theme ubuntu</code></div>
     <p>Ubuntu — Yaru's flat aubergine. Tight gaps, squared-off chips, a solid bar hard against the top edge. Orange only ever means focus.</p></div>
   <div class="shot"><div class="screen" style="background:#2c001ef2">
   <div class="bar" style="height:18.6px;top:0.0px;left:0.0px;right:0.0px;
@@ -107,7 +107,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 5px</span><span class="f"><b>ring</b> 4.0px square</span><span class="f"><b>bar</b> 30px, flush</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 24px</span><span class="f"><i style="background:#e95420ff"></i>focus</span><span class="f"><i style="background:#2c001ef2"></i>ground</span><span class="f"><i style="background:#9b7fa6ff"></i>icons</span></div>
 </section><section class="style">
-  <div class="shead"><div class="top"><h2>Nord</h2><code>theme-set nord</code></div>
+  <div class="shead"><div class="top"><h2>Nord</h2><code>mull theme nord</code></div>
     <p>Nord — airy and cold. Wide gaps, a thin ring, and a floating rounded bar that sits inset from the edges. The calmest of the set; nothing shouts.</p></div>
   <div class="shot"><div class="screen" style="background:#2e3440d9">
   <div class="bar" style="height:21.08px;top:9.92px;left:6.2px;right:6.2px;
@@ -127,7 +127,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 16px</span><span class="f"><b>ring</b> 3.0px round, focused only</span><span class="f"><b>bar</b> 34px, floating r10</span><span class="f"><b>pip</b> dot</span><span class="f"><b>accordion</b> 40px</span><span class="f"><i style="background:#88c0d0ff"></i>focus</span><span class="f"><i style="background:#2e3440d9"></i>ground</span><span class="f"><i style="background:#81a1c1ff"></i>icons</span></div>
 </section><section class="style">
-  <div class="shead"><div class="top"><h2>Gruvbox</h2><code>theme-set gruvbox</code></div>
+  <div class="shead"><div class="top"><h2>Gruvbox</h2><code>mull theme gruvbox</code></div>
     <p>Gruvbox — chunky and warm. Heavy square borders, hard-edged chips, no blur. Everything a stop lower in saturation than it looks like it should be.</p></div>
   <div class="shot"><div class="screen" style="background:#1d2021ff">
   <div class="bar" style="height:18.6px;top:0.0px;left:0.0px;right:0.0px;
@@ -147,7 +147,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 10px</span><span class="f"><b>ring</b> 6.0px square</span><span class="f"><b>bar</b> 30px, flush</span><span class="f"><b>pip</b> underline</span><span class="f"><b>accordion</b> 30px</span><span class="f"><i style="background:#fabd2fff"></i>focus</span><span class="f"><i style="background:#1d2021ff"></i>ground</span><span class="f"><i style="background:#8ec07cff"></i>icons</span></div>
 </section><section class="style">
-  <div class="shead"><div class="top"><h2>Dense</h2><code>theme-set dense</code></div>
+  <div class="shead"><div class="top"><h2>Dense</h2><code>mull theme dense</code></div>
     <p>Dense — every pixel is screen. No gaps at all, a hairline focus ring, and a short bar with no chrome. Windows meet edge to edge, i3-with-no-config style.</p></div>
   <div class="shot"><div class="screen" style="background:#0d0f12ff">
   <div class="bar" style="height:14.88px;top:0.0px;left:0.0px;right:0.0px;
@@ -167,7 +167,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 0px</span><span class="f"><b>ring</b> 1.0px square, focused only</span><span class="f"><b>bar</b> 24px, flush</span><span class="f"><b>pip</b> underline</span><span class="f"><b>accordion</b> 16px</span><span class="f"><i style="background:#5ec8f2ff"></i>focus</span><span class="f"><i style="background:#0d0f12ff"></i>ground</span><span class="f"><i style="background:#7f8894ff"></i>icons</span></div>
 </section><section class="style">
-  <div class="shead"><div class="top"><h2>Daylight</h2><code>theme-set daylight</code></div>
+  <div class="shead"><div class="top"><h2>Daylight</h2><code>mull theme daylight</code></div>
     <p>Daylight — the only light one, for a bright room or a monitor at noon. Generous gaps so the white ground doesn't read as one flat sheet.</p></div>
   <div class="shot"><div class="screen" style="background:#f4f6f8f2">
   <div class="bar" style="height:19.84px;top:7.4399999999999995px;left:4.96px;right:4.96px;
@@ -187,7 +187,7 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </div></div>
   <div class="facts"><span class="f"><b>gaps</b> 12px</span><span class="f"><b>ring</b> 4.0px round</span><span class="f"><b>bar</b> 32px, floating r8</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 34px</span><span class="f"><i style="background:#1f5fa8ff"></i>focus</span><span class="f"><i style="background:#f4f6f8f2"></i>ground</span><span class="f"><i style="background:#0f6b78ff"></i>icons</span></div>
 </section></div>
-<footer>Switch with <code>theme-set &lt;name&gt;</code>. It rewrites one word in <code>theme/active</code>,
+<footer>Switch with <code>mull theme &lt;name&gt;</code>. It rewrites one word in <code>mullion/active</code>,
   pushes the gap numbers into the marked block in <code>aerospace.toml</code>, then reloads SketchyBar,
   JankyBorders and the AeroSpace config in place. AeroSpace is never restarted, so windows keep their
   places — the gaps just re-flow around them.</footer>

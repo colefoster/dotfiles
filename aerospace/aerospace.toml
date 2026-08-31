@@ -1,4 +1,4 @@
-# AeroSpace — i3-style tiling for macOS.
+# AeroSpace — the tiling half of Mullion. Managed with `mull`.
 # Super = Caps Lock, remapped by Karabiner to cmd+ctrl+alt (see karabiner/).
 # Nothing in macOS uses that trio, so no binding here can collide with an app.
 # Docs: https://nikitabobko.github.io/AeroSpace/guide
@@ -34,7 +34,7 @@ exec-on-workspace-change = ['/bin/bash', '-c',
   '/opt/homebrew/bin/sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE'
 ]
 
-# >>> STYLE — rewritten by theme-set. Edit theme/styles/<name>.sh, not here.
+# >>> STYLE — rewritten by `mull theme`. Edit mullion/styles/<name>.sh, not here.
 accordion-padding = 30
 
 [gaps]

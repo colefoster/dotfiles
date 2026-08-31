@@ -4,4 +4,4 @@
 export PATH="/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
 # The look lives in one place, shared with JankyBorders.
-source "$HOME/.config/theme/palette.sh"
+source "$HOME/.config/mullion/style.sh"

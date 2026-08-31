@@ -2,7 +2,7 @@
 # JankyBorders — macOS won't tell you which window has focus once every window
 # is the same size. Width, shape and whether unfocused windows get a ring at
 # all all come from the active style.
-source "$HOME/.config/theme/palette.sh"
+source "$HOME/.config/mullion/style.sh"
 
 inactive="$LINE"
 [ "$BORDER_INACTIVE" = "off" ] && inactive=0x00000000
