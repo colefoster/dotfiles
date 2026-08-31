@@ -41,12 +41,34 @@ mkdir -p "$HOME/.config"
 link "$DOTFILES_DIR/starship.toml" "$HOME/.config/starship.toml"
 
 # Ghostty. Only the macOS app-support file, where the Ghostty Config app writes
-# the theme. The ~/.config/ghostty one belongs to omacosy, which symlinks the
-# whole directory out of its own repo.
+# the theme.
 if [[ "$PLATFORM" == "macos" ]]; then
   mkdir -p "$HOME/Library/Application Support/com.mitchellh.ghostty"
   link "$DOTFILES_DIR/ghostty/config.ghostty" \
     "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
+fi
+
+# Window manager: AeroSpace + SketchyBar + JankyBorders.
+#   brew install --cask nikitabobko/tap/aerospace
+#   brew install FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
+# Nothing starts at login. AeroSpace launches the bar and the borders itself,
+# so opening AeroSpace turns the whole setup on and quitting it turns it off.
+if [[ "$PLATFORM" == "macos" ]]; then
+  mkdir -p "$HOME/.config/aerospace"
+  link "$DOTFILES_DIR/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
+  link "$DOTFILES_DIR/sketchybar" "$HOME/.config/sketchybar"
+  link "$DOTFILES_DIR/borders"    "$HOME/.config/borders"
+
+  # Karabiner rewrites karabiner.json in place whenever you touch its UI, which
+  # would clobber a symlink's target. Copy it, and only when there is nothing
+  # there yet — an existing profile is the user's, not ours.
+  mkdir -p "$HOME/.config/karabiner"
+  if [[ ! -e "$HOME/.config/karabiner/karabiner.json" ]]; then
+    echo "  Copying karabiner.json (caps -> hyper)"
+    cp "$DOTFILES_DIR/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
+  else
+    echo "  Skipping karabiner.json — one already exists; merge by hand if you want the caps rule"
+  fi
 fi
 
 # Claude Code

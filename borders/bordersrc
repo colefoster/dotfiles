@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# JankyBorders — macOS won't tell you which window has focus once every window
+# is the same size. This does. Started by AeroSpace.
+exec borders \
+  active_color=0xfff2a93b \
+  inactive_color=0xff26313f \
+  width=5.0 \
+  hidpi=on \
+  style=round

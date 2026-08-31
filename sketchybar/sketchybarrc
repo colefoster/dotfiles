@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# SketchyBar — workspaces on the left, machine on the right, notch in between.
+# Started by AeroSpace's after-startup-command, so it lives and dies with the WM.
+
+CONFIG_DIR="$HOME/.config/sketchybar"
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+source "$CONFIG_DIR/env.sh"
+
+##### Bar #####
+sketchybar --bar \
+  height=32 \
+  position=top \
+  sticky=on \
+  padding_left=8 \
+  padding_right=8 \
+  color=$DECK \
+  border_width=0 \
+  blur_radius=24 \
+  shadow=off \
+  topmost=window
+
+##### Defaults every item inherits #####
+sketchybar --default \
+  updates=when_shown \
+  icon.font="$FONT:Bold:13.0" \
+  icon.color=$INK \
+  icon.padding_left=8 \
+  icon.padding_right=4 \
+  label.font="$FONT:Medium:12.0" \
+  label.color=$INK \
+  label.padding_left=0 \
+  label.padding_right=8 \
+  background.corner_radius=5 \
+  background.height=22 \
+  background.drawing=off
+
+##### AeroSpace workspaces #####
+# AeroSpace emulates its own workspaces, so the native "space" item can't see
+# them — it fires this custom event on every switch instead (see aerospace.toml).
+sketchybar --add event aerospace_workspace_change
+
+for sid in 1 2 3 4 5 6 7 8 9; do
+  sketchybar --add item space.$sid left \
+    --subscribe space.$sid aerospace_workspace_change front_app_switched \
+    --set space.$sid \
+      icon="$sid" \
+      icon.padding_left=9 \
+      icon.padding_right=9 \
+      label.drawing=off \
+      background.color=$PANEL \
+      background.drawing=off \
+      click_script="aerospace workspace $sid" \
+      script="$PLUGIN_DIR/aerospace.sh"
+done
+
+sketchybar --add item space_pad left --set space_pad width=6 background.drawing=off
+
+##### Focused app #####
+sketchybar --add item front_app left \
+  --subscribe front_app front_app_switched \
+  --set front_app \
+    icon.drawing=off \
+    label.font="$FONT:Bold:12.0" \
+    label.color=$AMBER \
+    script="$PLUGIN_DIR/front_app.sh"
+
+##### Right side #####
+sketchybar --add item clock right \
+  --set clock \
+    update_freq=15 \
+    icon="󰥔" \
+    icon.color=$CYAN \
+    script="$PLUGIN_DIR/clock.sh"
+
+sketchybar --add item battery right \
+  --subscribe battery power_source_change system_woke \
+  --set battery \
+    update_freq=120 \
+    script="$PLUGIN_DIR/battery.sh"
+
+sketchybar --add item cpu right \
+  --set cpu \
+    update_freq=5 \
+    icon="󰘚" \
+    icon.color=$CYAN \
+    label.color=$DIM \
+    script="$PLUGIN_DIR/cpu.sh"
+
+##### Go #####
+sketchybar --update
