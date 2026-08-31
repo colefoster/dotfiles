@@ -21,7 +21,6 @@ after-startup-command = [
 enable-normalization-flatten-containers = true
 enable-normalization-opposite-orientation-for-nested-containers = true
 
-accordion-padding = 30
 default-root-container-layout = 'tiles'
 default-root-container-orientation = 'auto'   # split along the monitor's long edge
 
@@ -35,6 +34,9 @@ exec-on-workspace-change = ['/bin/bash', '-c',
   '/opt/homebrew/bin/sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE'
 ]
 
+# >>> STYLE — rewritten by theme-set. Edit theme/styles/<name>.sh, not here.
+accordion-padding = 30
+
 [gaps]
 inner.horizontal = 8
 inner.vertical   = 8
@@ -44,6 +46,8 @@ outer.bottom     = 8
 # Room for SketchyBar. The built-in display already starts below the notch
 # strip, so it needs less than the external one.
 outer.top        = [{ monitor.'built-in' = 8 }, 40]
+# <<< STYLE
+
 
 # Fixed-size windows fight the tiler — resize, snap back, relayout, flicker.
 [[on-window-detected]]

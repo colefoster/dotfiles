@@ -1,32 +1,65 @@
 #!/usr/bin/env bash
-# Swap the look of the bar and the window borders. Touches no keybinding, and
-# never restarts AeroSpace — your windows do not move.
+# Swap the entire look: colours, bar shape, border weight, gaps, and how the
+# focused workspace is marked. Touches no keybinding. Never restarts AeroSpace,
+# so your windows keep their places — the gaps just re-flow.
 #
-#   theme-set            list themes, mark the active one
-#   theme-set nord       switch, and reload the two daemons if they're running
+#   theme-set            list styles, mark the active one
+#   theme-set nord       switch
 set -euo pipefail
 
 THEME_DIR="$HOME/.config/theme"
-PALETTES="$THEME_DIR/palettes"
+STYLES="$THEME_DIR/styles"
+TOML="$HOME/.config/aerospace/aerospace.toml"
 
 if [[ $# -eq 0 ]]; then
   active="$(cat "$THEME_DIR/active" 2>/dev/null || echo deck)"
-  for f in "$PALETTES"/*.sh; do
-    n="$(basename "$f" .sh)"
-    label="$(grep '^NAME=' "$f" | cut -d'"' -f2)"
-    mark=" "; [[ "$n" == "$active" ]] && mark="*"
-    printf " %s %-10s %s\n" "$mark" "$n" "$label"
+  printf "  %-10s %-9s %-6s %-12s %s\n" NAME LABEL GAPS BORDER PIP
+  for f in "$STYLES"/*.sh; do
+    n="$(basename "$f" .sh)"; ( set -a; . "$f"; set +a
+      mark=" "; [[ "$n" == "$active" ]] && mark="*"
+      printf "%s %-10s %-9s %-6s %-12s %s\n" "$mark" "$n" "$NAME" \
+        "$GAP_INNER" "$BORDER_WIDTH/$BORDER_STYLE" "$PIP_STYLE" )
   done
   exit 0
 fi
 
 name="$1"
-[[ -r "$PALETTES/$name.sh" ]] || { echo "No theme '$name'. Try: theme-set"; exit 1; }
+[[ -r "$STYLES/$name.sh" ]] || { echo "No style '$name'. Try: theme-set"; exit 1; }
+# shellcheck disable=SC1090
+. "$STYLES/$name.sh"
 
 printf '%s\n' "$name" > "$THEME_DIR/active"
-echo "Theme: $name"
 
-# Only reload what's actually running. Nothing starts a daemon that was down.
+# --- gaps live in aerospace.toml, so push them into the marked block ---------
+if [[ -w "$TOML" ]]; then
+  python3 - "$TOML" "$ACCORDION_PADDING" "$GAP_INNER" "$GAP_OUTER" \
+                    "$GAP_TOP_BUILTIN" "$GAP_TOP_EXTERNAL" <<'PY'
+import sys, re, pathlib
+toml, acc, inner, outer, top_b, top_e = sys.argv[1:7]
+p = pathlib.Path(toml); s = p.read_text()
+block = f"""# >>> STYLE — rewritten by theme-set. Edit theme/styles/<name>.sh, not here.
+accordion-padding = {acc}
+
+[gaps]
+inner.horizontal = {inner}
+inner.vertical   = {inner}
+outer.left       = {outer}
+outer.right      = {outer}
+outer.bottom     = {outer}
+# Room for SketchyBar. The built-in display already starts below the notch
+# strip, so it needs less than the external one.
+outer.top        = [{{ monitor.'built-in' = {top_b} }}, {top_e}]
+# <<< STYLE"""
+new = re.sub(r"# >>> STYLE.*?# <<< STYLE", block, s, flags=re.S)
+if new != s:
+    p.write_text(new)
+PY
+fi
+
+echo "Style: $NAME"
+echo "  gaps $GAP_INNER · border $BORDER_WIDTH $BORDER_STYLE · bar ${BAR_HEIGHT}px r$BAR_RADIUS · pip $PIP_STYLE"
+
+# --- reload only what is already up -----------------------------------------
 if pgrep -x borders >/dev/null 2>&1; then
   pkill -x borders || true
   "$HOME/.config/borders/bordersrc" >/dev/null 2>&1 &
@@ -34,4 +67,7 @@ if pgrep -x borders >/dev/null 2>&1; then
 fi
 if pgrep -x sketchybar >/dev/null 2>&1; then
   sketchybar --reload >/dev/null 2>&1 && echo "  sketchybar reloaded"
+fi
+if pgrep -x AeroSpace >/dev/null 2>&1; then
+  aerospace reload-config >/dev/null 2>&1 && echo "  aerospace gaps re-flowed"
 fi

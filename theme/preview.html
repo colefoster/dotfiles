@@ -1,267 +1,194 @@
 <meta charset="utf-8">
-<title>Desk Themes</title>
+<title>Desk Styles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-:root{
-  --page:#EDF0F4; --card:#FFFFFF; --line:#D3DBE4; --line2:#C0CAD6;
-  --ink:#141C25; --ink2:#33404E; --dim:#5F6D7E; --faint:#8B98A7; --accent:#0E6A79;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --page:#0B1016; --card:#141C25; --line:#26313F; --line2:#33404E;
-    --ink:#E7ECF2; --ink2:#C3CCD7; --dim:#8795A6; --faint:#65727F; --accent:#4FB3C4;
-  }
-}
-:root[data-theme="dark"]{
-  --page:#0B1016; --card:#141C25; --line:#26313F; --line2:#33404E;
-  --ink:#E7ECF2; --ink2:#C3CCD7; --dim:#8795A6; --faint:#65727F; --accent:#4FB3C4;
-}
+:root{--page:#EDF0F4;--card:#FFF;--line:#D3DBE4;--line2:#C0CAD6;
+  --ink:#141C25;--ink2:#33404E;--dim:#5F6D7E;--faint:#8B98A7;--accent:#0E6A79}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --page:#0B1016;--card:#141C25;--line:#26313F;--line2:#33404E;
+  --ink:#E7ECF2;--ink2:#C3CCD7;--dim:#8795A6;--faint:#65727F;--accent:#4FB3C4}}
+:root[data-theme="dark"]{--page:#0B1016;--card:#141C25;--line:#26313F;--line2:#33404E;
+  --ink:#E7ECF2;--ink2:#C3CCD7;--dim:#8795A6;--faint:#65727F;--accent:#4FB3C4}
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
-  font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,sans-serif;font-size:14px;line-height:1.5;
+  font-family:"IBM Plex Sans",-apple-system,sans-serif;font-size:14px;line-height:1.5;
   -webkit-font-smoothing:antialiased}
 h1,h2{font-family:Archivo,sans-serif;margin:0;letter-spacing:-.02em;text-wrap:balance}
-.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
 .wrap{max-width:1240px;margin:0 auto;padding:22px 20px 48px;display:flex;flex-direction:column;gap:18px}
-.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
-@media (max-width:900px){.grid{grid-template-columns:1fr}}
 header{border-bottom:1px solid var(--line);padding-bottom:14px;display:flex;
   align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 header h1{font-size:25px}
 header .sub{font-family:"IBM Plex Mono",monospace;font-size:12px;text-transform:uppercase;
   letter-spacing:.06em;color:var(--dim);margin-left:10px}
-header p{margin:0;color:var(--dim);font-size:12.5px;max-width:48ch}
-.theme{background:var(--card);border:1px solid var(--line);border-radius:7px;overflow:hidden}
-.thead{display:flex;align-items:baseline;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.thead h2{font-size:16px}
-.thead code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent);
+header p{margin:0;color:var(--dim);font-size:12.5px;max-width:50ch}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:920px){.grid{grid-template-columns:1fr}}
+.style{background:var(--card);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.shead{padding:11px 14px;border-bottom:1px solid var(--line)}
+.shead .top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.shead h2{font-size:16px}
+.shead code{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--accent);
   border:1px solid var(--line2);border-radius:4px;padding:1px 6px}
-.thead p{margin:0;color:var(--dim);font-size:12.3px;flex:1 1 26ch;min-width:0}
-.shot{padding:14px}
-/* ---- the fake desktop ---- */
-.screen{border-radius:5px;overflow:hidden;position:relative;aspect-ratio:16/10;
-  border:1px solid rgba(0,0,0,.35)}
-.bar{height:26px;display:flex;align-items:center;gap:7px;padding:0 8px;
-  font-family:"IBM Plex Mono",monospace;font-size:10.5px}
-.pip{width:17px;height:17px;border-radius:4px;display:grid;place-items:center;font-weight:600}
-.bar .app{font-weight:600;margin-left:5px}
-.bar .right{margin-left:auto;display:flex;gap:10px;align-items:center}
-.bar .right span{display:flex;align-items:center;gap:4px}
-.bar .right i{width:6px;height:6px;border-radius:50%;display:block}
-.tiles{position:absolute;inset:26px 0 0 0;display:grid;gap:7px;padding:7px;
-  grid-template-columns:1.6fr 1fr;grid-template-rows:1fr 1fr}
-.win{border-radius:4px;overflow:hidden;display:flex;flex-direction:column;border:2px solid transparent}
+.shead p{margin:5px 0 0;color:var(--dim);font-size:12.3px}
+.shot{padding:14px;background:repeating-conic-gradient(rgba(128,128,128,.06) 0% 25%,transparent 0% 50%) 0 0/14px 14px}
+.screen{aspect-ratio:16/10;position:relative;overflow:hidden;border-radius:4px;
+  border:1px solid rgba(0,0,0,.4)}
+.bar{position:absolute;left:0;right:0;display:flex;align-items:center;gap:6px;
+  font-family:"IBM Plex Mono",monospace;z-index:3}
+.bar .right{margin-left:auto;display:flex;gap:9px;align-items:center}
+.bar .right span{display:flex;align-items:center;gap:3px}
+.bar i.d{width:5px;height:5px;border-radius:50%;display:block}
+.pip{display:grid;place-items:center;font-weight:600;position:relative}
+.tiles{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:1.6fr 1fr;
+  grid-template-rows:1fr 1fr}
+.win{overflow:hidden;display:flex;flex-direction:column}
 .win:first-child{grid-row:span 2}
-.wbar{height:17px;display:flex;align-items:center;gap:5px;padding:0 6px;
-  font-family:"IBM Plex Mono",monospace;font-size:9px}
-.wdot{width:6px;height:6px;border-radius:50%}
-.wbody{flex:1;padding:7px;display:flex;flex-direction:column;gap:4px}
-.ln{height:3px;border-radius:2px}
-/* ---- swatches ---- */
-.sw{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 14px}
-.chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:5px;
-  padding:3px 8px 3px 4px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--dim)}
-.chip i{width:13px;height:13px;border-radius:3px;display:block;border:1px solid rgba(128,128,128,.35)}
+.winner{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.wbar{display:flex;align-items:center;gap:4px;padding:0 5px;
+  font-family:"IBM Plex Mono",monospace;font-size:8px;flex:none}
+.wdot{width:5px;height:5px;border-radius:50%}
+.wbody{flex:1;padding:6px;display:flex;flex-direction:column;gap:3px}
+.ln{height:2.5px;border-radius:2px}
+.facts{display:flex;flex-wrap:wrap;gap:5px;padding:0 14px 12px}
+.f{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:5px;
+  padding:2px 7px;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--dim)}
+.f b{color:var(--ink2);font-weight:600}
+.f i{width:12px;height:12px;border-radius:3px;display:block;border:1px solid rgba(128,128,128,.35)}
 footer{color:var(--faint);font-size:12px;border-top:1px solid var(--line);padding-top:12px}
 footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 </style>
 <div class="wrap">
 <header>
-  <div><h1>Desk Themes<span class="sub">appearance only</span></h1></div>
-  <p>Five palettes for the bar and the window borders. Every one is read straight from
-     <code class="mono">~/dotfiles/theme/palettes/</code>, so what you see is what the daemons draw.
-     None of them touches a keybinding, a layout rule, or a gap.</p>
+  <div><h1>Desk Styles<span class="sub">appearance only</span></h1></div>
+  <p>Six complete looks — colour, gap size, focus-ring weight, bar shape, and how the active
+     workspace is marked. Every number is read from <code>~/dotfiles/theme/styles/</code>, so the
+     mock-ups are drawn from the same values the daemons use. None of them touches a keybinding.</p>
 </header>
-<div class="grid"><section class="theme">
-  <div class="thead"><h2>Deck</h2><code>theme-set deck</code><p>Deck — the original. Deep slate ground, amber for focus, cyan for structure.</p></div>
+<div class="grid"><section class="style">
+  <div class="shead"><div class="top"><h2>Deck</h2><code>theme-set deck</code></div>
+    <p>Deck — the original. Moderate gaps, a thick round focus ring, flush bar with a filled chip on the active workspace.</p></div>
   <div class="shot"><div class="screen" style="background:#0b1016e6">
-  <div class="bar" style="background:#0b1016e6;color:#8795a6ff;border-bottom:1px solid #26313fff">
-    <span class="pip" style="background:#141c25ff;color:#f2a93bff">1</span>
-    <span style="color:#e7ecf2ff">2</span>
-    <span style="color:#566270ff">3</span>
-    <span style="color:#566270ff">4</span>
-    <span class="app" style="color:#f2a93bff">Ghostty</span>
+  <div class="bar" style="height:19.84px;top:0.0px;left:0.0px;right:0.0px;
+      background:#0b1016e6;border-radius:0.0px;padding:0 4.96px;color:#8795a6ff;
+      font-size:7.44px;border-bottom:1px solid #26313fff">
+    <span class="pip" style="width:12.958px;height:13.64px;border-radius:3.1px;font-size:8.940000000000001px;color:#f2a93bff;background:#141c25ff">1</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.1px;font-size:8.940000000000001px;color:#e7ecf2ff">2</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.1px;font-size:8.940000000000001px;color:#566270ff">3</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.1px;font-size:8.940000000000001px;color:#566270ff">4</span>
+    <span style="color:#f2a93bff;font-weight:600;margin-left:5px">Ghostty</span>
     <span class="right">
-      <span><i style="background:#4fb3c4ff"></i>18%</span>
-      <span><i style="background:#74ce94ff"></i>100%</span>
-      <span><i style="background:#4fb3c4ff"></i>22:06</span>
+      <span><i class="d" style="background:#4fb3c4ff"></i>18%</span>
+      <span><i class="d" style="background:#74ce94ff"></i>100%</span>
+      <span><i class="d" style="background:#4fb3c4ff"></i>22:13</span>
     </span>
   </div>
-  <div class="tiles">
-    <div class="win" style="background:#141c25ff;border-color:#f2a93bff">
-      <div class="wbar" style="background:#0b1016e6;color:#e7ecf2ff">
-        <span class="wdot" style="background:#f2a93bff"></span>Ghostty
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div><div class="ln" style="width:78%;background:#26313fff"></div><div class="ln" style="width:61%;background:#26313fff"></div><div class="ln" style="width:88%;background:#26313fff"></div></div>
-    </div>
-    <div class="win" style="background:#141c25ff;border-color:#26313fff">
-      <div class="wbar" style="background:#0b1016e6;color:#566270ff">
-        <span class="wdot" style="background:#4fb3c4ff"></span>Zed
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div></div>
-    </div>
-    <div class="win" style="background:#141c25ff;border-color:#26313fff">
-      <div class="wbar" style="background:#0b1016e6;color:#566270ff">
-        <span class="wdot" style="background:#4fb3c4ff"></span>Safari
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div></div>
-    </div>
+  <div class="tiles" style="top:19.84px;padding:2.48px">
+    <div class="win" style="padding:2.48px"><div class="winner" style="background:#141c25ff;border:3.1px solid #f2a93bff;border-radius:4px"><div class="wbar" style="background:#0b1016e6;color:#e7ecf2ff;height:10.54px"><span class="wdot" style="background:#f2a93bff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div><div class="ln" style="width:78%;background:#26313fff"></div><div class="ln" style="width:61%;background:#26313fff"></div><div class="ln" style="width:88%;background:#26313fff"></div></div></div></div><div class="win" style="padding:2.48px"><div class="winner" style="background:#141c25ff;border:3.1px solid #26313fff;border-radius:4px"><div class="wbar" style="background:#0b1016e6;color:#566270ff;height:10.54px"><span class="wdot" style="background:#4fb3c4ff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div></div></div></div><div class="win" style="padding:2.48px"><div class="winner" style="background:#141c25ff;border:3.1px solid #26313fff;border-radius:4px"><div class="wbar" style="background:#0b1016e6;color:#566270ff;height:10.54px"><span class="wdot" style="background:#4fb3c4ff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#26313fff"></div><div class="ln" style="width:68%;background:#26313fff"></div><div class="ln" style="width:84%;background:#26313fff"></div><div class="ln" style="width:55%;background:#26313fff"></div></div></div></div>
   </div>
 </div></div>
-  <div class="sw"><span class="chip"><i style="background:#0b1016e6"></i>deck · bar / ground</span><span class="chip"><i style="background:#141c25ff"></i>panel · window</span><span class="chip"><i style="background:#26313fff"></i>line · unfocused border</span><span class="chip"><i style="background:#e7ecf2ff"></i>ink · text</span><span class="chip"><i style="background:#8795a6ff"></i>dim · secondary</span><span class="chip"><i style="background:#566270ff"></i>faint · empty workspace</span><span class="chip"><i style="background:#f2a93bff"></i>amber · focus</span><span class="chip"><i style="background:#4fb3c4ff"></i>cyan · icons</span><span class="chip"><i style="background:#74ce94ff"></i>good · ok</span><span class="chip"><i style="background:#e27162ff"></i>bad · alert</span></div>
-</section><section class="theme">
-  <div class="thead"><h2>Ubuntu</h2><code>theme-set ubuntu</code><p>Ubuntu — aubergine ground, the canonical orange for focus, warm mid-purple for structure. Straight off Canonical's brand palette.</p></div>
-  <div class="shot"><div class="screen" style="background:#2c001ee6">
-  <div class="bar" style="background:#2c001ee6;color:#bfa8b8ff;border-bottom:1px solid #5e2750ff">
-    <span class="pip" style="background:#3d1132ff;color:#e95420ff">1</span>
-    <span style="color:#f7f4f2ff">2</span>
-    <span style="color:#8a6f83ff">3</span>
-    <span style="color:#8a6f83ff">4</span>
-    <span class="app" style="color:#e95420ff">Ghostty</span>
+  <div class="facts"><span class="f"><b>gaps</b> 8px</span><span class="f"><b>ring</b> 5.0px round</span><span class="f"><b>bar</b> 32px, flush</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 30px</span><span class="f"><i style="background:#f2a93bff"></i>focus</span><span class="f"><i style="background:#0b1016e6"></i>ground</span><span class="f"><i style="background:#4fb3c4ff"></i>icons</span></div>
+</section><section class="style">
+  <div class="shead"><div class="top"><h2>Ubuntu</h2><code>theme-set ubuntu</code></div>
+    <p>Ubuntu — Yaru's flat aubergine. Tight gaps, squared-off chips, a solid bar hard against the top edge. Orange only ever means focus.</p></div>
+  <div class="shot"><div class="screen" style="background:#2c001ef2">
+  <div class="bar" style="height:18.6px;top:0.0px;left:0.0px;right:0.0px;
+      background:#2c001ef2;border-radius:0.0px;padding:0 3.72px;color:#bfa8b8ff;
+      font-size:7.44px;border-bottom:1px solid #5e2750ff">
+    <span class="pip" style="width:12.958px;height:13.64px;border-radius:1.86px;font-size:8.940000000000001px;color:#e95420ff;background:#3d1132ff">1</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:1.86px;font-size:8.940000000000001px;color:#f7f4f2ff">2</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:1.86px;font-size:8.940000000000001px;color:#8a6f83ff">3</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:1.86px;font-size:8.940000000000001px;color:#8a6f83ff">4</span>
+    <span style="color:#e95420ff;font-weight:600;margin-left:5px">Ghostty</span>
     <span class="right">
-      <span><i style="background:#9b7fa6ff"></i>18%</span>
-      <span><i style="background:#5fb381ff"></i>100%</span>
-      <span><i style="background:#9b7fa6ff"></i>22:06</span>
+      <span><i class="d" style="background:#9b7fa6ff"></i>18%</span>
+      <span><i class="d" style="background:#5fb381ff"></i>100%</span>
+      <span><i class="d" style="background:#9b7fa6ff"></i>22:13</span>
     </span>
   </div>
-  <div class="tiles">
-    <div class="win" style="background:#3d1132ff;border-color:#e95420ff">
-      <div class="wbar" style="background:#2c001ee6;color:#f7f4f2ff">
-        <span class="wdot" style="background:#e95420ff"></span>Ghostty
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div><div class="ln" style="width:78%;background:#5e2750ff"></div><div class="ln" style="width:61%;background:#5e2750ff"></div><div class="ln" style="width:88%;background:#5e2750ff"></div></div>
-    </div>
-    <div class="win" style="background:#3d1132ff;border-color:#5e2750ff">
-      <div class="wbar" style="background:#2c001ee6;color:#8a6f83ff">
-        <span class="wdot" style="background:#9b7fa6ff"></span>Zed
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div></div>
-    </div>
-    <div class="win" style="background:#3d1132ff;border-color:#5e2750ff">
-      <div class="wbar" style="background:#2c001ee6;color:#8a6f83ff">
-        <span class="wdot" style="background:#9b7fa6ff"></span>Safari
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div></div>
-    </div>
+  <div class="tiles" style="top:18.6px;padding:1.55px">
+    <div class="win" style="padding:1.55px"><div class="winner" style="background:#3d1132ff;border:2.48px solid #e95420ff;border-radius:0px"><div class="wbar" style="background:#2c001ef2;color:#f7f4f2ff;height:10.54px"><span class="wdot" style="background:#e95420ff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div><div class="ln" style="width:78%;background:#5e2750ff"></div><div class="ln" style="width:61%;background:#5e2750ff"></div><div class="ln" style="width:88%;background:#5e2750ff"></div></div></div></div><div class="win" style="padding:1.55px"><div class="winner" style="background:#3d1132ff;border:2.48px solid #5e2750ff;border-radius:0px"><div class="wbar" style="background:#2c001ef2;color:#8a6f83ff;height:10.54px"><span class="wdot" style="background:#9b7fa6ff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div></div></div></div><div class="win" style="padding:1.55px"><div class="winner" style="background:#3d1132ff;border:2.48px solid #5e2750ff;border-radius:0px"><div class="wbar" style="background:#2c001ef2;color:#8a6f83ff;height:10.54px"><span class="wdot" style="background:#9b7fa6ff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#5e2750ff"></div><div class="ln" style="width:68%;background:#5e2750ff"></div><div class="ln" style="width:84%;background:#5e2750ff"></div><div class="ln" style="width:55%;background:#5e2750ff"></div></div></div></div>
   </div>
 </div></div>
-  <div class="sw"><span class="chip"><i style="background:#2c001ee6"></i>deck · bar / ground</span><span class="chip"><i style="background:#3d1132ff"></i>panel · window</span><span class="chip"><i style="background:#5e2750ff"></i>line · unfocused border</span><span class="chip"><i style="background:#f7f4f2ff"></i>ink · text</span><span class="chip"><i style="background:#bfa8b8ff"></i>dim · secondary</span><span class="chip"><i style="background:#8a6f83ff"></i>faint · empty workspace</span><span class="chip"><i style="background:#e95420ff"></i>amber · focus</span><span class="chip"><i style="background:#9b7fa6ff"></i>cyan · icons</span><span class="chip"><i style="background:#5fb381ff"></i>good · ok</span><span class="chip"><i style="background:#c7162bff"></i>bad · alert</span></div>
-</section><section class="theme">
-  <div class="thead"><h2>Nord</h2><code>theme-set nord</code><p>Nord — cold, low-contrast, arctic. The quietest of the set; nothing shouts, so the focus ring reads by hue rather than brightness.</p></div>
-  <div class="shot"><div class="screen" style="background:#2e3440e6">
-  <div class="bar" style="background:#2e3440e6;color:#d8dee9ff;border-bottom:1px solid #4c566aff">
-    <span class="pip" style="background:#3b4252ff;color:#88c0d0ff">1</span>
-    <span style="color:#eceff4ff">2</span>
-    <span style="color:#7b8798ff">3</span>
-    <span style="color:#7b8798ff">4</span>
-    <span class="app" style="color:#88c0d0ff">Ghostty</span>
+  <div class="facts"><span class="f"><b>gaps</b> 5px</span><span class="f"><b>ring</b> 4.0px square</span><span class="f"><b>bar</b> 30px, flush</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 24px</span><span class="f"><i style="background:#e95420ff"></i>focus</span><span class="f"><i style="background:#2c001ef2"></i>ground</span><span class="f"><i style="background:#9b7fa6ff"></i>icons</span></div>
+</section><section class="style">
+  <div class="shead"><div class="top"><h2>Nord</h2><code>theme-set nord</code></div>
+    <p>Nord — airy and cold. Wide gaps, a thin ring, and a floating rounded bar that sits inset from the edges. The calmest of the set; nothing shouts.</p></div>
+  <div class="shot"><div class="screen" style="background:#2e3440d9">
+  <div class="bar" style="height:21.08px;top:9.92px;left:6.2px;right:6.2px;
+      background:#2e3440d9;border-radius:6.2px;padding:0 7.44px;color:#d8dee9ff;
+      font-size:7.44px;box-shadow:0 2px 10px rgba(0,0,0,.3)">
+    <span class="pip" style="width:14.136px;height:14.88px;border-radius:5.58px;font-size:8.940000000000001px;color:#88c0d0ff">1</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:5.58px;font-size:8.940000000000001px;color:#eceff4ff">2</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:5.58px;font-size:8.940000000000001px;color:#7b8798ff">3</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:5.58px;font-size:8.940000000000001px;color:#7b8798ff">4</span>
+    <span style="color:#88c0d0ff;font-weight:600;margin-left:5px">Ghostty</span>
     <span class="right">
-      <span><i style="background:#81a1c1ff"></i>18%</span>
-      <span><i style="background:#a3be8cff"></i>100%</span>
-      <span><i style="background:#81a1c1ff"></i>22:06</span>
+      <span><i class="d" style="background:#81a1c1ff"></i>18%</span>
+      <span><i class="d" style="background:#a3be8cff"></i>100%</span>
+      <span><i class="d" style="background:#81a1c1ff"></i>22:13</span>
     </span>
   </div>
-  <div class="tiles">
-    <div class="win" style="background:#3b4252ff;border-color:#88c0d0ff">
-      <div class="wbar" style="background:#2e3440e6;color:#eceff4ff">
-        <span class="wdot" style="background:#88c0d0ff"></span>Ghostty
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div><div class="ln" style="width:78%;background:#4c566aff"></div><div class="ln" style="width:61%;background:#4c566aff"></div><div class="ln" style="width:88%;background:#4c566aff"></div></div>
-    </div>
-    <div class="win" style="background:#3b4252ff;border-color:#4c566aff">
-      <div class="wbar" style="background:#2e3440e6;color:#7b8798ff">
-        <span class="wdot" style="background:#81a1c1ff"></span>Zed
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div></div>
-    </div>
-    <div class="win" style="background:#3b4252ff;border-color:#4c566aff">
-      <div class="wbar" style="background:#2e3440e6;color:#7b8798ff">
-        <span class="wdot" style="background:#81a1c1ff"></span>Safari
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div></div>
-    </div>
+  <div class="tiles" style="top:30.999999999999996px;padding:4.96px">
+    <div class="win" style="padding:4.96px"><div class="winner" style="background:#3b4252ff;border:1.86px solid #88c0d0ff;border-radius:4px"><div class="wbar" style="background:#2e3440d9;color:#eceff4ff;height:10.54px"><span class="wdot" style="background:#88c0d0ff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div><div class="ln" style="width:78%;background:#4c566aff"></div><div class="ln" style="width:61%;background:#4c566aff"></div><div class="ln" style="width:88%;background:#4c566aff"></div></div></div></div><div class="win" style="padding:4.96px"><div class="winner" style="background:#3b4252ff;border:1.86px solid transparent;border-radius:4px"><div class="wbar" style="background:#2e3440d9;color:#7b8798ff;height:10.54px"><span class="wdot" style="background:#81a1c1ff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div></div></div></div><div class="win" style="padding:4.96px"><div class="winner" style="background:#3b4252ff;border:1.86px solid transparent;border-radius:4px"><div class="wbar" style="background:#2e3440d9;color:#7b8798ff;height:10.54px"><span class="wdot" style="background:#81a1c1ff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#4c566aff"></div><div class="ln" style="width:68%;background:#4c566aff"></div><div class="ln" style="width:84%;background:#4c566aff"></div><div class="ln" style="width:55%;background:#4c566aff"></div></div></div></div>
   </div>
 </div></div>
-  <div class="sw"><span class="chip"><i style="background:#2e3440e6"></i>deck · bar / ground</span><span class="chip"><i style="background:#3b4252ff"></i>panel · window</span><span class="chip"><i style="background:#4c566aff"></i>line · unfocused border</span><span class="chip"><i style="background:#eceff4ff"></i>ink · text</span><span class="chip"><i style="background:#d8dee9ff"></i>dim · secondary</span><span class="chip"><i style="background:#7b8798ff"></i>faint · empty workspace</span><span class="chip"><i style="background:#88c0d0ff"></i>amber · focus</span><span class="chip"><i style="background:#81a1c1ff"></i>cyan · icons</span><span class="chip"><i style="background:#a3be8cff"></i>good · ok</span><span class="chip"><i style="background:#bf616aff"></i>bad · alert</span></div>
-</section><section class="theme">
-  <div class="thead"><h2>Gruvbox</h2><code>theme-set gruvbox</code><p>Gruvbox — warm retro. Brown-black ground, mustard focus, everything a stop lower in saturation than it looks like it should be.</p></div>
-  <div class="shot"><div class="screen" style="background:#1d2021e6">
-  <div class="bar" style="background:#1d2021e6;color:#bdae93ff;border-bottom:1px solid #504945ff">
-    <span class="pip" style="background:#32302fff;color:#fabd2fff">1</span>
-    <span style="color:#ebdbb2ff">2</span>
-    <span style="color:#7c6f64ff">3</span>
-    <span style="color:#7c6f64ff">4</span>
-    <span class="app" style="color:#fabd2fff">Ghostty</span>
+  <div class="facts"><span class="f"><b>gaps</b> 16px</span><span class="f"><b>ring</b> 3.0px round, focused only</span><span class="f"><b>bar</b> 34px, floating r10</span><span class="f"><b>pip</b> dot</span><span class="f"><b>accordion</b> 40px</span><span class="f"><i style="background:#88c0d0ff"></i>focus</span><span class="f"><i style="background:#2e3440d9"></i>ground</span><span class="f"><i style="background:#81a1c1ff"></i>icons</span></div>
+</section><section class="style">
+  <div class="shead"><div class="top"><h2>Gruvbox</h2><code>theme-set gruvbox</code></div>
+    <p>Gruvbox — chunky and warm. Heavy square borders, hard-edged chips, no blur. Everything a stop lower in saturation than it looks like it should be.</p></div>
+  <div class="shot"><div class="screen" style="background:#1d2021ff">
+  <div class="bar" style="height:18.6px;top:0.0px;left:0.0px;right:0.0px;
+      background:#1d2021ff;border-radius:0.0px;padding:0 3.72px;color:#bdae93ff;
+      font-size:7.44px;border-bottom:1px solid #504945ff">
+    <span class="pip" style="width:14.136px;height:14.88px;border-radius:0.0px;font-size:8.940000000000001px;color:#fabd2fff;box-shadow:inset 0 -2px 0 #fabd2fff">1</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:0.0px;font-size:8.940000000000001px;color:#ebdbb2ff">2</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:0.0px;font-size:8.940000000000001px;color:#7c6f64ff">3</span><span class="pip" style="width:14.136px;height:14.88px;border-radius:0.0px;font-size:8.940000000000001px;color:#7c6f64ff">4</span>
+    <span style="color:#fabd2fff;font-weight:600;margin-left:5px">Ghostty</span>
     <span class="right">
-      <span><i style="background:#8ec07cff"></i>18%</span>
-      <span><i style="background:#b8bb26ff"></i>100%</span>
-      <span><i style="background:#8ec07cff"></i>22:06</span>
+      <span><i class="d" style="background:#8ec07cff"></i>18%</span>
+      <span><i class="d" style="background:#b8bb26ff"></i>100%</span>
+      <span><i class="d" style="background:#8ec07cff"></i>22:13</span>
     </span>
   </div>
-  <div class="tiles">
-    <div class="win" style="background:#32302fff;border-color:#fabd2fff">
-      <div class="wbar" style="background:#1d2021e6;color:#ebdbb2ff">
-        <span class="wdot" style="background:#fabd2fff"></span>Ghostty
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div><div class="ln" style="width:78%;background:#504945ff"></div><div class="ln" style="width:61%;background:#504945ff"></div><div class="ln" style="width:88%;background:#504945ff"></div></div>
-    </div>
-    <div class="win" style="background:#32302fff;border-color:#504945ff">
-      <div class="wbar" style="background:#1d2021e6;color:#7c6f64ff">
-        <span class="wdot" style="background:#8ec07cff"></span>Zed
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div></div>
-    </div>
-    <div class="win" style="background:#32302fff;border-color:#504945ff">
-      <div class="wbar" style="background:#1d2021e6;color:#7c6f64ff">
-        <span class="wdot" style="background:#8ec07cff"></span>Safari
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div></div>
-    </div>
+  <div class="tiles" style="top:18.6px;padding:3.1px">
+    <div class="win" style="padding:3.1px"><div class="winner" style="background:#32302fff;border:3.72px solid #fabd2fff;border-radius:0px"><div class="wbar" style="background:#1d2021ff;color:#ebdbb2ff;height:10.54px"><span class="wdot" style="background:#fabd2fff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div><div class="ln" style="width:78%;background:#504945ff"></div><div class="ln" style="width:61%;background:#504945ff"></div><div class="ln" style="width:88%;background:#504945ff"></div></div></div></div><div class="win" style="padding:3.1px"><div class="winner" style="background:#32302fff;border:3.72px solid #504945ff;border-radius:0px"><div class="wbar" style="background:#1d2021ff;color:#7c6f64ff;height:10.54px"><span class="wdot" style="background:#8ec07cff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div></div></div></div><div class="win" style="padding:3.1px"><div class="winner" style="background:#32302fff;border:3.72px solid #504945ff;border-radius:0px"><div class="wbar" style="background:#1d2021ff;color:#7c6f64ff;height:10.54px"><span class="wdot" style="background:#8ec07cff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#504945ff"></div><div class="ln" style="width:68%;background:#504945ff"></div><div class="ln" style="width:84%;background:#504945ff"></div><div class="ln" style="width:55%;background:#504945ff"></div></div></div></div>
   </div>
 </div></div>
-  <div class="sw"><span class="chip"><i style="background:#1d2021e6"></i>deck · bar / ground</span><span class="chip"><i style="background:#32302fff"></i>panel · window</span><span class="chip"><i style="background:#504945ff"></i>line · unfocused border</span><span class="chip"><i style="background:#ebdbb2ff"></i>ink · text</span><span class="chip"><i style="background:#bdae93ff"></i>dim · secondary</span><span class="chip"><i style="background:#7c6f64ff"></i>faint · empty workspace</span><span class="chip"><i style="background:#fabd2fff"></i>amber · focus</span><span class="chip"><i style="background:#8ec07cff"></i>cyan · icons</span><span class="chip"><i style="background:#b8bb26ff"></i>good · ok</span><span class="chip"><i style="background:#fb4934ff"></i>bad · alert</span></div>
-</section><section class="theme">
-  <div class="thead"><h2>Daylight</h2><code>theme-set daylight</code><p>Daylight — the only light one. For a bright room or an external monitor at noon. Focus goes to a deep ink-blue, since amber on white is unreadable.</p></div>
+  <div class="facts"><span class="f"><b>gaps</b> 10px</span><span class="f"><b>ring</b> 6.0px square</span><span class="f"><b>bar</b> 30px, flush</span><span class="f"><b>pip</b> underline</span><span class="f"><b>accordion</b> 30px</span><span class="f"><i style="background:#fabd2fff"></i>focus</span><span class="f"><i style="background:#1d2021ff"></i>ground</span><span class="f"><i style="background:#8ec07cff"></i>icons</span></div>
+</section><section class="style">
+  <div class="shead"><div class="top"><h2>Dense</h2><code>theme-set dense</code></div>
+    <p>Dense — every pixel is screen. No gaps at all, a hairline focus ring, and a short bar with no chrome. Windows meet edge to edge, i3-with-no-config style.</p></div>
+  <div class="shot"><div class="screen" style="background:#0d0f12ff">
+  <div class="bar" style="height:14.88px;top:0.0px;left:0.0px;right:0.0px;
+      background:#0d0f12ff;border-radius:0.0px;padding:0 3.1px;color:#868d97ff;
+      font-size:6.82px;border-bottom:1px solid #2a2f37ff">
+    <span class="pip" style="width:10.602px;height:11.16px;border-radius:0.0px;font-size:8.32px;color:#5ec8f2ff;box-shadow:inset 0 -2px 0 #5ec8f2ff">1</span><span class="pip" style="width:10.602px;height:11.16px;border-radius:0.0px;font-size:8.32px;color:#d7dbe0ff">2</span><span class="pip" style="width:10.602px;height:11.16px;border-radius:0.0px;font-size:8.32px;color:#4d545dff">3</span><span class="pip" style="width:10.602px;height:11.16px;border-radius:0.0px;font-size:8.32px;color:#4d545dff">4</span>
+    <span style="color:#5ec8f2ff;font-weight:600;margin-left:5px">Ghostty</span>
+    <span class="right">
+      <span><i class="d" style="background:#7f8894ff"></i>18%</span>
+      <span><i class="d" style="background:#6fbf8bff"></i>100%</span>
+      <span><i class="d" style="background:#7f8894ff"></i>22:13</span>
+    </span>
+  </div>
+  <div class="tiles" style="top:14.88px;padding:0px">
+    <div class="win" style="padding:0.0px"><div class="winner" style="background:#15181dff;border:0.62px solid #5ec8f2ff;border-radius:0px"><div class="wbar" style="background:#0d0f12ff;color:#d7dbe0ff;height:10.54px"><span class="wdot" style="background:#5ec8f2ff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#2a2f37ff"></div><div class="ln" style="width:68%;background:#2a2f37ff"></div><div class="ln" style="width:84%;background:#2a2f37ff"></div><div class="ln" style="width:55%;background:#2a2f37ff"></div><div class="ln" style="width:78%;background:#2a2f37ff"></div><div class="ln" style="width:61%;background:#2a2f37ff"></div><div class="ln" style="width:88%;background:#2a2f37ff"></div></div></div></div><div class="win" style="padding:0.0px"><div class="winner" style="background:#15181dff;border:0.62px solid transparent;border-radius:0px"><div class="wbar" style="background:#0d0f12ff;color:#4d545dff;height:10.54px"><span class="wdot" style="background:#7f8894ff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#2a2f37ff"></div><div class="ln" style="width:68%;background:#2a2f37ff"></div><div class="ln" style="width:84%;background:#2a2f37ff"></div><div class="ln" style="width:55%;background:#2a2f37ff"></div></div></div></div><div class="win" style="padding:0.0px"><div class="winner" style="background:#15181dff;border:0.62px solid transparent;border-radius:0px"><div class="wbar" style="background:#0d0f12ff;color:#4d545dff;height:10.54px"><span class="wdot" style="background:#7f8894ff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#2a2f37ff"></div><div class="ln" style="width:68%;background:#2a2f37ff"></div><div class="ln" style="width:84%;background:#2a2f37ff"></div><div class="ln" style="width:55%;background:#2a2f37ff"></div></div></div></div>
+  </div>
+</div></div>
+  <div class="facts"><span class="f"><b>gaps</b> 0px</span><span class="f"><b>ring</b> 1.0px square, focused only</span><span class="f"><b>bar</b> 24px, flush</span><span class="f"><b>pip</b> underline</span><span class="f"><b>accordion</b> 16px</span><span class="f"><i style="background:#5ec8f2ff"></i>focus</span><span class="f"><i style="background:#0d0f12ff"></i>ground</span><span class="f"><i style="background:#7f8894ff"></i>icons</span></div>
+</section><section class="style">
+  <div class="shead"><div class="top"><h2>Daylight</h2><code>theme-set daylight</code></div>
+    <p>Daylight — the only light one, for a bright room or a monitor at noon. Generous gaps so the white ground doesn't read as one flat sheet.</p></div>
   <div class="shot"><div class="screen" style="background:#f4f6f8f2">
-  <div class="bar" style="background:#f4f6f8f2;color:#4a5c6eff;border-bottom:1px solid #c8d2dcff">
-    <span class="pip" style="background:#e6ebf1ff;color:#1f5fa8ff">1</span>
-    <span style="color:#14202bff">2</span>
-    <span style="color:#93a2b2ff">3</span>
-    <span style="color:#93a2b2ff">4</span>
-    <span class="app" style="color:#1f5fa8ff">Ghostty</span>
+  <div class="bar" style="height:19.84px;top:7.4399999999999995px;left:4.96px;right:4.96px;
+      background:#f4f6f8f2;border-radius:4.96px;padding:0 6.2px;color:#4a5c6eff;
+      font-size:7.44px;box-shadow:0 2px 10px rgba(0,0,0,.3)">
+    <span class="pip" style="width:12.958px;height:13.64px;border-radius:3.72px;font-size:8.940000000000001px;color:#1f5fa8ff;background:#e6ebf1ff">1</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.72px;font-size:8.940000000000001px;color:#14202bff">2</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.72px;font-size:8.940000000000001px;color:#93a2b2ff">3</span><span class="pip" style="width:12.958px;height:13.64px;border-radius:3.72px;font-size:8.940000000000001px;color:#93a2b2ff">4</span>
+    <span style="color:#1f5fa8ff;font-weight:600;margin-left:5px">Ghostty</span>
     <span class="right">
-      <span><i style="background:#0f6b78ff"></i>18%</span>
-      <span><i style="background:#1c7a4dff"></i>100%</span>
-      <span><i style="background:#0f6b78ff"></i>22:06</span>
+      <span><i class="d" style="background:#0f6b78ff"></i>18%</span>
+      <span><i class="d" style="background:#1c7a4dff"></i>100%</span>
+      <span><i class="d" style="background:#0f6b78ff"></i>22:13</span>
     </span>
   </div>
-  <div class="tiles">
-    <div class="win" style="background:#e6ebf1ff;border-color:#1f5fa8ff">
-      <div class="wbar" style="background:#f4f6f8f2;color:#14202bff">
-        <span class="wdot" style="background:#1f5fa8ff"></span>Ghostty
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div><div class="ln" style="width:78%;background:#c8d2dcff"></div><div class="ln" style="width:61%;background:#c8d2dcff"></div><div class="ln" style="width:88%;background:#c8d2dcff"></div></div>
-    </div>
-    <div class="win" style="background:#e6ebf1ff;border-color:#c8d2dcff">
-      <div class="wbar" style="background:#f4f6f8f2;color:#93a2b2ff">
-        <span class="wdot" style="background:#0f6b78ff"></span>Zed
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div></div>
-    </div>
-    <div class="win" style="background:#e6ebf1ff;border-color:#c8d2dcff">
-      <div class="wbar" style="background:#f4f6f8f2;color:#93a2b2ff">
-        <span class="wdot" style="background:#0f6b78ff"></span>Safari
-      </div>
-      <div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div></div>
-    </div>
+  <div class="tiles" style="top:27.28px;padding:3.72px">
+    <div class="win" style="padding:3.72px"><div class="winner" style="background:#e6ebf1ff;border:2.48px solid #1f5fa8ff;border-radius:4px"><div class="wbar" style="background:#f4f6f8f2;color:#14202bff;height:10.54px"><span class="wdot" style="background:#1f5fa8ff"></span>Ghostty</div><div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div><div class="ln" style="width:78%;background:#c8d2dcff"></div><div class="ln" style="width:61%;background:#c8d2dcff"></div><div class="ln" style="width:88%;background:#c8d2dcff"></div></div></div></div><div class="win" style="padding:3.72px"><div class="winner" style="background:#e6ebf1ff;border:2.48px solid #c8d2dcff;border-radius:4px"><div class="wbar" style="background:#f4f6f8f2;color:#93a2b2ff;height:10.54px"><span class="wdot" style="background:#0f6b78ff"></span>Zed</div><div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div></div></div></div><div class="win" style="padding:3.72px"><div class="winner" style="background:#e6ebf1ff;border:2.48px solid #c8d2dcff;border-radius:4px"><div class="wbar" style="background:#f4f6f8f2;color:#93a2b2ff;height:10.54px"><span class="wdot" style="background:#0f6b78ff"></span>Safari</div><div class="wbody"><div class="ln" style="width:92%;background:#c8d2dcff"></div><div class="ln" style="width:68%;background:#c8d2dcff"></div><div class="ln" style="width:84%;background:#c8d2dcff"></div><div class="ln" style="width:55%;background:#c8d2dcff"></div></div></div></div>
   </div>
 </div></div>
-  <div class="sw"><span class="chip"><i style="background:#f4f6f8f2"></i>deck · bar / ground</span><span class="chip"><i style="background:#e6ebf1ff"></i>panel · window</span><span class="chip"><i style="background:#c8d2dcff"></i>line · unfocused border</span><span class="chip"><i style="background:#14202bff"></i>ink · text</span><span class="chip"><i style="background:#4a5c6eff"></i>dim · secondary</span><span class="chip"><i style="background:#93a2b2ff"></i>faint · empty workspace</span><span class="chip"><i style="background:#1f5fa8ff"></i>amber · focus</span><span class="chip"><i style="background:#0f6b78ff"></i>cyan · icons</span><span class="chip"><i style="background:#1c7a4dff"></i>good · ok</span><span class="chip"><i style="background:#b3372aff"></i>bad · alert</span></div>
+  <div class="facts"><span class="f"><b>gaps</b> 12px</span><span class="f"><b>ring</b> 4.0px round</span><span class="f"><b>bar</b> 32px, floating r8</span><span class="f"><b>pip</b> chip</span><span class="f"><b>accordion</b> 34px</span><span class="f"><i style="background:#1f5fa8ff"></i>focus</span><span class="f"><i style="background:#f4f6f8f2"></i>ground</span><span class="f"><i style="background:#0f6b78ff"></i>icons</span></div>
 </section></div>
-<footer>Generated from <code>theme/palettes/*.sh</code>. Switch with <code>theme-set &lt;name&gt;</code> — it rewrites one word in
-  <code>theme/active</code> and reloads SketchyBar and JankyBorders in place.
-  AeroSpace is never restarted, so your windows don't move.
-  The focus ring, the bar and the workspace pips are the only things that change.</footer>
+<footer>Switch with <code>theme-set &lt;name&gt;</code>. It rewrites one word in <code>theme/active</code>,
+  pushes the gap numbers into the marked block in <code>aerospace.toml</code>, then reloads SketchyBar,
+  JankyBorders and the AeroSpace config in place. AeroSpace is never restarted, so windows keep their
+  places — the gaps just re-flow around them.</footer>
 </div>

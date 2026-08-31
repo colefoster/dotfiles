@@ -1,0 +1,15 @@
+# Deck — the original. Moderate gaps, a thick round focus ring, flush bar with
+# a filled chip on the active workspace.
+NAME="Deck"
+DECK=0xe60b1016; PANEL=0xff141c25; LINE=0xff26313f
+INK=0xffe7ecf2;  DIM=0xff8795a6;   FAINT=0xff566270
+AMBER=0xfff2a93b; CYAN=0xff4fb3c4; GOOD=0xff74ce94; BAD=0xffe27162
+
+BAR_HEIGHT=32; BAR_MARGIN=0;  BAR_RADIUS=0;  BAR_PADDING=8;  BAR_BLUR=24; BAR_YOFF=0
+ITEM_RADIUS=5; ITEM_HEIGHT=22; ITEM_BG=on;    FONT_SIZE=12
+PIP_STYLE=chip
+
+BORDER_WIDTH=5.0; BORDER_STYLE=round; BORDER_INACTIVE=on
+
+GAP_INNER=8; GAP_OUTER=8; GAP_TOP_BUILTIN=8; GAP_TOP_EXTERNAL=40
+ACCORDION_PADDING=30

@@ -1,37 +1,43 @@
 #!/usr/bin/env bash
 # SketchyBar — workspaces on the left, machine on the right, notch in between.
-# Started by AeroSpace's after-startup-command, so it lives and dies with the WM.
+# Every number below comes from the active style, so switching a style changes
+# the bar's shape, not just its colour. Started by AeroSpace.
 
 CONFIG_DIR="$HOME/.config/sketchybar"
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 source "$CONFIG_DIR/env.sh"
 
 ##### Bar #####
+# BAR_MARGIN > 0 lifts the bar off the screen edges so it reads as a floating
+# slab rather than a strip welded to the top.
 sketchybar --bar \
-  height=32 \
+  height="$BAR_HEIGHT" \
   position=top \
   sticky=on \
-  padding_left=8 \
-  padding_right=8 \
-  color=$DECK \
+  margin="$BAR_MARGIN" \
+  y_offset="$BAR_YOFF" \
+  corner_radius="$BAR_RADIUS" \
+  padding_left="$BAR_PADDING" \
+  padding_right="$BAR_PADDING" \
+  color="$DECK" \
   border_width=0 \
-  blur_radius=24 \
+  blur_radius="$BAR_BLUR" \
   shadow=off \
   topmost=window
 
 ##### Defaults every item inherits #####
 sketchybar --default \
   updates=when_shown \
-  icon.font="$FONT:Bold:13.0" \
-  icon.color=$INK \
+  icon.font="$FONT:Bold:${FONT_SIZE}.0" \
+  icon.color="$INK" \
   icon.padding_left=8 \
   icon.padding_right=4 \
-  label.font="$FONT:Medium:12.0" \
-  label.color=$INK \
+  label.font="$FONT:Medium:${FONT_SIZE}.0" \
+  label.color="$INK" \
   label.padding_left=0 \
   label.padding_right=8 \
-  background.corner_radius=5 \
-  background.height=22 \
+  background.corner_radius="$ITEM_RADIUS" \
+  background.height="$ITEM_HEIGHT" \
   background.drawing=off
 
 ##### AeroSpace workspaces #####
@@ -47,7 +53,7 @@ for sid in 1 2 3 4 5 6 7 8 9; do
       icon.padding_left=9 \
       icon.padding_right=9 \
       label.drawing=off \
-      background.color=$PANEL \
+      background.color="$PANEL" \
       background.drawing=off \
       click_script="aerospace workspace $sid" \
       script="$PLUGIN_DIR/aerospace.sh"
@@ -60,30 +66,21 @@ sketchybar --add item front_app left \
   --subscribe front_app front_app_switched \
   --set front_app \
     icon.drawing=off \
-    label.font="$FONT:Bold:12.0" \
-    label.color=$AMBER \
+    label.font="$FONT:Bold:${FONT_SIZE}.0" \
+    label.color="$AMBER" \
     script="$PLUGIN_DIR/front_app.sh"
 
 ##### Right side #####
 sketchybar --add item clock right \
-  --set clock \
-    update_freq=15 \
-    icon="󰥔" \
-    icon.color=$CYAN \
+  --set clock update_freq=15 icon="󰥔" icon.color="$CYAN" \
     script="$PLUGIN_DIR/clock.sh"
 
 sketchybar --add item battery right \
   --subscribe battery power_source_change system_woke \
-  --set battery \
-    update_freq=120 \
-    script="$PLUGIN_DIR/battery.sh"
+  --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh"
 
 sketchybar --add item cpu right \
-  --set cpu \
-    update_freq=5 \
-    icon="󰘚" \
-    icon.color=$CYAN \
-    label.color=$DIM \
+  --set cpu update_freq=5 icon="󰘚" icon.color="$CYAN" label.color="$DIM" \
     script="$PLUGIN_DIR/cpu.sh"
 
 ##### Go #####
