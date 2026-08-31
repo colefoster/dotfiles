@@ -1,21 +1,22 @@
 #!/usr/bin/env bash
-# The whole look, in one file. Sourced by SketchyBar and JankyBorders.
+# The whole look, in one place. Sourced by SketchyBar and JankyBorders.
 # Nothing here changes how a single key behaves — this is appearance only.
-# Colours are 0xAARRGGBB.
+#
+# Switch themes with:  theme-set <name>     (theme-set with no args lists them)
+# The active choice is one word in ./active.
 
-export DECK=0xe60b1016     # bar ground
-export PANEL=0xff141c25    # raised chip
-export LINE=0xff26313f     # hairlines, unfocused window border
-export INK=0xffe7ecf2      # primary text
-export DIM=0xff8795a6      # secondary text
-export FAINT=0xff566270    # empty workspace
-export AMBER=0xfff2a93b    # focus — the one loud colour
-export CYAN=0xff4fb3c4     # structure, icons
-export GOOD=0xff74ce94
-export BAD=0xffe27162
+THEME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+ACTIVE="$(cat "$THEME_DIR/active" 2>/dev/null || echo deck)"
+[ -r "$THEME_DIR/palettes/$ACTIVE.sh" ] || ACTIVE=deck
 
+# Palettes set colours only; everything else is shared, so a theme can never
+# change a font or a border width out from under you.
+. "$THEME_DIR/palettes/$ACTIVE.sh"
+
+export THEME_NAME="${NAME:-$ACTIVE}"
+export DECK PANEL LINE INK DIM FAINT AMBER CYAN GOOD BAD
+
+# Shared across every theme — geometry and type, not colour.
 export FONT="FiraCode Nerd Font"
-
-# Border geometry — also appearance
 export BORDER_WIDTH=5.0
 export BORDER_STYLE=round

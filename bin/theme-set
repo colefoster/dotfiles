@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Swap the look of the bar and the window borders. Touches no keybinding, and
+# never restarts AeroSpace — your windows do not move.
+#
+#   theme-set            list themes, mark the active one
+#   theme-set nord       switch, and reload the two daemons if they're running
+set -euo pipefail
+
+THEME_DIR="$HOME/.config/theme"
+PALETTES="$THEME_DIR/palettes"
+
+if [[ $# -eq 0 ]]; then
+  active="$(cat "$THEME_DIR/active" 2>/dev/null || echo deck)"
+  for f in "$PALETTES"/*.sh; do
+    n="$(basename "$f" .sh)"
+    label="$(grep '^NAME=' "$f" | cut -d'"' -f2)"
+    mark=" "; [[ "$n" == "$active" ]] && mark="*"
+    printf " %s %-10s %s\n" "$mark" "$n" "$label"
+  done
+  exit 0
+fi
+
+name="$1"
+[[ -r "$PALETTES/$name.sh" ]] || { echo "No theme '$name'. Try: theme-set"; exit 1; }
+
+printf '%s\n' "$name" > "$THEME_DIR/active"
+echo "Theme: $name"
+
+# Only reload what's actually running. Nothing starts a daemon that was down.
+if pgrep -x borders >/dev/null 2>&1; then
+  pkill -x borders || true
+  "$HOME/.config/borders/bordersrc" >/dev/null 2>&1 &
+  echo "  borders reloaded"
+fi
+if pgrep -x sketchybar >/dev/null 2>&1; then
+  sketchybar --reload >/dev/null 2>&1 && echo "  sketchybar reloaded"
+fi
