@@ -22,7 +22,24 @@ if [ "$count" -eq 0 ] && [ "$HIDE_EMPTY" = "on" ] && [ "$sid" != "$focused" ]; t
 fi
 sketchybar --set "$NAME" drawing=on
 
-if [ "$PIP_MODE" = "icons" ] && [ "$count" -gt 0 ]; then
+if [ "$PIP_FORM" = "bracket" ]; then
+  # A status line, not a row of buttons: [1:gh zd]
+  short=""
+  seen=""
+  while IFS= read -r app; do
+    [ -z "$app" ] && continue
+    case " $seen " in *" $app "*) continue ;; esac
+    seen="$seen $app"
+    short="$short$(printf '%s' "$app" | tr '[:upper:]' '[:lower:]' | cut -c1-2) "
+  done <<EOF
+$apps
+EOF
+  if [ -n "$short" ]; then
+    sketchybar --set "$NAME" icon="[$sid:" label="${short% }]" label.drawing=on
+  else
+    sketchybar --set "$NAME" icon="[$sid" label="]" label.drawing=on
+  fi
+elif [ "$PIP_MODE" = "icons" ] && [ "$count" -gt 0 ]; then
   # one glyph per distinct app, in tree order
   glyphs=""
   seen=""

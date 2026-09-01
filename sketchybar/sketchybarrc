@@ -33,6 +33,17 @@ sketchybar --bar \
 anim=()
 [ "$ANIMATE" = "on" ] && anim=(--animate sin 12)
 
+# CHROME decides how every item is drawn, before any colour is applied:
+#   chips    filled rounded backgrounds  (Deck, Dock)
+#   text     nothing at all, separators do the dividing  (Console, Instrument)
+#   outline  every item is its own hard-edged box  (System)
+item_bg=off; item_border=0
+case "$CHROME" in
+  outline) item_bg=on;  item_border="${ITEM_OUTLINE:-1}" ;;
+  chips)   item_bg=off; item_border=0 ;;
+  text)    item_bg=off; item_border=0 ;;
+esac
+
 sketchybar --default \
   updates=when_shown \
   icon.font="$FONT:Bold:${FONT_SIZE}.0" \
@@ -45,7 +56,10 @@ sketchybar --default \
   label.padding_right=7 \
   background.corner_radius="$ITEM_RADIUS" \
   background.height="$ITEM_HEIGHT" \
-  background.drawing=off
+  background.color="$PANEL" \
+  background.border_color="$LINE" \
+  background.border_width="$item_border" \
+  background.drawing="$item_bg"
 
 ##### Items #####
 # Each is a function so a layout can pick which ones exist at all.
@@ -81,8 +95,18 @@ add_clock()   { sketchybar --add item clock "$1" --set clock update_freq=15 \
 add_battery() { sketchybar --add item battery "$1" \
                   --subscribe battery power_source_change system_woke \
                   --set battery update_freq=120 script="$PLUGIN_DIR/battery.sh"; }
-add_cpu()     { sketchybar --add item cpu "$1" --set cpu update_freq=5 \
-                  icon="󰘚" icon.color="$CYAN" label.color="$DIM" script="$PLUGIN_DIR/cpu.sh"; }
+add_cpu() {
+  if [ "$CPU_FORM" = "graph" ]; then
+    # A shape tells you the trend; a number only tells you the instant.
+    sketchybar --add graph cpu "$1" 42 \
+      --set cpu update_freq=3 graph.color="$AMBER" graph.line_width=1.5 \
+        icon.drawing=off label.drawing=off background.drawing=off \
+        script="$PLUGIN_DIR/cpu.sh"
+  else
+    sketchybar --add item cpu "$1" --set cpu update_freq=5 \
+      icon="󰘚" icon.color="$CYAN" label.color="$DIM" script="$PLUGIN_DIR/cpu.sh"
+  fi
+}
 add_net()     { sketchybar --add item net "$1" --set net update_freq=30 \
                   script="$PLUGIN_DIR/net.sh"; }
 add_claude()  { sketchybar --add item claude "$1" --set claude update_freq=60 \
@@ -90,8 +114,27 @@ add_claude()  { sketchybar --add item claude "$1" --set claude update_freq=60 \
 add_rec()     { sketchybar --add item rec "$1" --set rec update_freq=15 \
                   drawing=off script="$PLUGIN_DIR/rec.sh"; }
 
-for item in $ITEMS_LEFT;  do "add_$item" left  2>/dev/null; done
-for item in $ITEMS_RIGHT; do "add_$item" right 2>/dev/null; done
+# A rule between fields, for chrome=text where nothing is boxed.
+sep_n=0
+add_sep() {
+  [ "$SEP_STYLE" = "pipe" ] || return 0
+  sep_n=$((sep_n + 1))
+  sketchybar --add item "sep.$sep_n" "$1" \
+    --set "sep.$sep_n" icon="│" icon.color="$LINE" icon.padding_left=2 \
+      icon.padding_right=2 label.drawing=off background.drawing=off
+}
+
+first=1
+for item in $ITEMS_LEFT; do
+  [ "$first" = 1 ] || add_sep left
+  "add_$item" left 2>/dev/null && first=0
+done
+for item in $ITEMS_CENTER; do "add_$item" center 2>/dev/null; done
+first=1
+for item in $ITEMS_RIGHT; do
+  [ "$first" = 1 ] || add_sep right
+  "add_$item" right 2>/dev/null && first=0
+done
 
 ##### Islands #####
 # Brackets draw one rounded background behind a group of items.

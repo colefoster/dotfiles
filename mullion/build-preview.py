@@ -13,8 +13,10 @@ import pathlib
 import re
 
 HERE = pathlib.Path(__file__).parent
-STYLE_ORDER = ["deck", "ubuntu", "nord", "gruvbox", "dense", "daylight"]
-LAYOUT_ORDER = ["classic", "islands", "readout", "ambient", "bottom"]
+STYLE_ORDER = ["console", "dock", "instrument", "system",
+               "deck", "ubuntu", "nord", "gruvbox", "dense", "daylight"]
+LAYOUT_ORDER = ["console", "dock", "instrument", "system",
+                "classic", "islands", "readout", "ambient", "bottom"]
 
 
 def blurb_of(text):
@@ -46,7 +48,9 @@ def read_layouts():
     out = {}
     for name in LAYOUT_ORDER:
         txt = (HERE / "layouts" / f"{name}.sh").read_text()
-        v = dict(re.findall(r'^([A-Z_]+)="?([^"\n]*)"?$', txt, re.M))
+        # strip trailing "# comment" — the shell ignores it, the parser must too
+        v = {k: val.split("#")[0].strip().strip('"')
+             for k, val in re.findall(r'^([A-Z_]+)=(.*)$', txt, re.M)}
         out[name] = {
             "label": v.get("LAYOUT_NAME", name),
             "blurb": blurb_of(txt),
@@ -115,7 +119,7 @@ header p{margin:0;color:var(--dim);font-size:12.5px;max-width:52ch}
 .screen{aspect-ratio:16/10;position:relative;overflow:hidden;border-radius:5px;
   border:1px solid rgba(0,0,0,.4);transition:background .2s}
 .barwrap{position:absolute;z-index:3;transition:all .2s}
-.bar{display:flex;align-items:center;gap:5px;width:100%;
+.bar{display:flex;align-items:center;gap:5px;width:100%;position:relative;
   font-family:"IBM Plex Mono",monospace;transition:all .2s}
 .bar .right{margin-left:auto;display:flex;align-items:center}
 .pip{display:inline-flex;align-items:center;justify-content:center;font-weight:600;
@@ -159,12 +163,16 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
   <header>
     <div><h1>Mullion<span class="sub">appearance only</span></h1></div>
     <p>Two independent axes: a <b>style</b> is colour and geometry, a <b>layout</b> is the bar's
-       shape and contents. Pick one of each — thirty combinations. Every number is read from
+       shape and contents. Pick one of each. Four of them were designed as pairs — those are the Looks. Every number is read from
        <span class="mono">~/dotfiles/mullion/</span>, and none of it touches a keybinding.</p>
   </header>
 
   <div class="main">
     <div class="rail">
+      <div class="group">
+        <h3>Look <span>designed pairs</span></h3>
+        <div id="lookList"></div>
+      </div>
       <div class="group">
         <h3>Style <span>colour · geometry</span></h3>
         <div id="styleList"></div>
@@ -205,6 +213,8 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 "use strict";
 const STYLES = __STYLES__;
 const LAYOUTS = __LAYOUTS__;
+// The four that were designed as pairs; the rest mix freely.
+const LOOKS = ["console", "dock", "instrument", "system"];
 const SCALE = 0.78;
 
 const ITEMS = {
@@ -218,7 +228,7 @@ const ITEMS = {
 // Two-letter stand-ins for the Nerd Font app glyphs the real bar draws.
 const WS_APPS = {1:["gh","zd"], 2:["sf","sl"], 3:["ob"], 4:[]};
 
-let sKey = "deck", lKey = "classic";
+let sKey = "console", lKey = "console";
 try {
   const a = localStorage.getItem("mullion-style"); if (STYLES[a]) sKey = a;
   const b = localStorage.getItem("mullion-layout"); if (LAYOUTS[b]) lKey = b;
@@ -227,13 +237,25 @@ try {
 const px = v => +(parseFloat(v) * SCALE).toFixed(2);
 const el = (t, cls) => { const n = document.createElement(t); if (cls) n.className = cls; return n; };
 
-function pipHTML(c, g, n, active, mode) {
+function pipHTML(c, g, n, active, v) {
   const r = px(g.ITEM_RADIUS), h = px(g.ITEM_HEIGHT), fs = px(g.FONT_SIZE) + 2;
   const apps = WS_APPS[n] || [];
-  const glyphs = (mode === "icons" && apps.length)
+  const chrome = g.CHROME || "chips";
+  const form = v.PIP_FORM || v.PIP_MODE;
+
+  // A status line writes [1:gh zd]; a bar of buttons draws a chip.
+  if (form === "bracket") {
+    const inner = apps.length ? `${n}:${apps.join(" ")}` : `${n}`;
+    const col = active ? c.AMBER : (apps.length ? c.INK : c.FAINT);
+    return `<span class="pip" style="height:${h}px;font-size:${fs}px;padding:0 3px;color:${col}">[${inner}]</span>`;
+  }
+
+  const glyphs = (form === "icons" && apps.length)
     ? `<span style="font-size:${fs - 1.5}px;opacity:.95;margin-left:4px">${apps.join(" ")}</span>` : "";
   const pad = px(8) + (glyphs ? 6 : 0);
   let style = `height:${h}px;border-radius:${r}px;font-size:${fs}px;padding:0 ${pad}px;`;
+  if (chrome === "outline")
+    style += `background:${c.PANEL};border:${g.ITEM_OUTLINE || 1}px solid ${c.LINE};`;
   if (!active) {
     style += `color:${apps.length ? c.INK : c.FAINT}`;
     return `<span class="pip" style="${style}">${n}${glyphs}</span>`;
@@ -243,8 +265,16 @@ function pipHTML(c, g, n, active, mode) {
   else if (g.PIP_STYLE === "dot")
     style += `color:${c.AMBER}`;
   else
-    style += `color:${c.AMBER};background:${g.ITEM_BG === "on" ? c.PANEL : "transparent"}`;
+    style += `color:${c.AMBER};` + (chrome === "outline" ? "" : `background:${g.ITEM_BG === "on" ? c.PANEL : "transparent"}`);
   return `<span class="pip" style="${style}">${n}${glyphs}</span>`;
+}
+
+// A sparkline drawn from block characters, so it needs no font we can't load.
+function sparkHTML(c) {
+  const bars = [2, 3, 1, 4, 6, 5, 3, 2, 4, 7, 5, 3];
+  const ch = "▁▂▃▄▅▆▇";
+  return `<span style="color:${c.AMBER};letter-spacing:-1px">` +
+    bars.map(b => ch[b]).join("") + `</span>`;
 }
 
 function winHTML(c, g, name, focused, lines) {
@@ -277,43 +307,81 @@ function render() {
     ? `background:${c.DECK};border-radius:${px(gm.ITEM_RADIUS)}px;padding:2px 4px;display:flex;align-items:center;gap:4px;`
     : "display:flex;align-items:center;gap:4px;";
 
+  const chrome = g.CHROME || "chips";
+  const sep = (g.SEP_STYLE === "pipe")
+    ? `<span style="color:${c.LINE};padding:0 3px">│</span>` : "";
+
   const hide = v.HIDE_EMPTY === "on";
   let pips = "";
   for (const n of [1, 2, 3, 4]) {
     if (hide && !(WS_APPS[n] || []).length && n !== 1) continue;
-    pips += pipHTML(c, gm, n, n === 1, v.PIP_MODE);
+    pips += pipHTML(c, gm, n, n === 1, v);
   }
-  let left = `<span style="${isleCSS}">${pips}</span>`;
-  if (v.ITEMS_LEFT.includes("front_app")) {
-    const fa = `<span style="color:${c.AMBER};font-weight:600;padding:0 7px">Ghostty</span>`;
-    left += islands ? `<span style="${isleCSS}">${fa}</span>` : fa;
-  }
+  const pipGroup = `<span style="${isleCSS}">${pips}</span>`;
 
-  const right = v.ITEMS_RIGHT.split(/\\s+/).filter(Boolean).map(k => {
+  const fieldHTML = k => {
     const it = ITEMS[k]; if (!it) return "";
-    return `<span style="display:flex;align-items:center;gap:4px;padding:0 5px">
-      <span style="width:5px;height:5px;border-radius:50%;background:${c[it.col]};display:block"></span>
-      <span style="color:${c.DIM}">${it.v}</span></span>`;
-  }).join("");
+    const inner = (k === "cpu" && v.CPU_FORM === "graph")
+      ? sparkHTML(c)
+      : `<span style="width:5px;height:5px;border-radius:50%;background:${c[it.col]};display:block"></span>
+         <span style="color:${c.DIM}">${it.v}</span>`;
+    const box = chrome === "outline"
+      ? `background:${c.PANEL};border:${g.ITEM_OUTLINE || 1}px solid ${c.LINE};height:${px(gm.ITEM_HEIGHT)}px;`
+      : "";
+    return `<span style="display:flex;align-items:center;gap:4px;padding:0 5px;${box}">${inner}</span>`;
+  };
+  const joinFields = ks => ks.map(fieldHTML).filter(Boolean).join(sep);
+
+  const frontApp = () => {
+    const box = chrome === "outline"
+      ? `background:${c.PANEL};border:${g.ITEM_OUTLINE || 1}px solid ${c.LINE};height:${px(gm.ITEM_HEIGHT)}px;display:flex;align-items:center;` : "";
+    return `<span style="color:${c.AMBER};font-weight:600;padding:0 7px;${box}">Ghostty</span>`;
+  };
+
+  let left = "";
+  if (v.ITEMS_LEFT.includes("spaces")) left += pipGroup;
+  if (v.ITEMS_LEFT.includes("front_app"))
+    left += (left ? sep : "") + (islands ? `<span style="${isleCSS}">${frontApp()}</span>` : frontApp());
+
+  const centreItems = (v.ITEMS_CENTER || "").trim();
+  const centre = centreItems.includes("spaces")
+    ? `<span style="${isleCSS}">${pips}</span>` : "";
+
+  const right = joinFields(v.ITEMS_RIGHT.split(/\\s+/).filter(Boolean));
   const rightWrap = islands ? `<span style="${isleCSS}">${right}</span>`
-                            : `<span style="display:flex">${right}</span>`;
+                            : `<span style="display:flex;align-items:center">${right}</span>`;
 
   const edge = (bm || islands) ? "box-shadow:0 2px 12px rgba(0,0,0,.35);"
              : (clear ? "" : `border-bottom:1px solid ${c.LINE};`);
   const barHTML = `<div class="bar" style="height:${bh}px;
       background:${clear ? "transparent" : c.DECK};border-radius:${br}px;
       padding:0 ${bp}px;font-size:${fs}px;color:${c.DIM};${edge}">
-      ${left}<span class="right">${rightWrap}</span></div>`;
+      ${left}
+      ${centre ? `<span style="position:absolute;left:50%;transform:translateX(-50%)">${centre}</span>` : ""}
+      <span class="right">${rightWrap}</span></div>`;
+
+  // A layout can hand the top strip back to macOS instead of covering it.
+  const nativeBar = v.KEEP_NATIVE_MENUBAR === "on"
+    ? `<div style="position:absolute;top:0;left:0;right:0;height:${px(22)}px;z-index:2;
+         background:rgba(240,240,242,.92);border-bottom:1px solid rgba(0,0,0,.12);
+         display:flex;align-items:center;gap:9px;padding:0 8px;
+         font-family:'IBM Plex Sans',sans-serif;font-size:${px(11)}px;color:#2b2b2e">
+         <b style="font-weight:700"></b><span>Ghostty</span><span style="opacity:.6">File</span>
+         <span style="margin-left:auto;opacity:.75">100%  20:52</span></div>`
+    : "";
 
   const strip = bh + bm + byo;
   const outer = px(g.GAP_OUTER);
   const pad = Math.max(outer - px(g.GAP_INNER) / 2, 0);
   const barPos = top ? `top:${bm + byo}px;left:${bm}px;right:${bm}px`
                      : `bottom:${bm + byo}px;left:${bm}px;right:${bm}px`;
-  const tilesPos = top ? `top:${strip}px;bottom:0` : `top:0;bottom:${strip}px`;
+  const nativeH = v.KEEP_NATIVE_MENUBAR === "on" ? px(22) : 0;
+  const tilesPos = top ? `top:${Math.max(strip, nativeH)}px;bottom:0`
+                       : `top:${nativeH}px;bottom:${strip}px`;
 
   document.getElementById("screen").style.background = c.DECK;
   document.getElementById("screen").innerHTML =
+    nativeBar +
     `<div class="barwrap" style="${barPos}">${barHTML}</div>
      <div class="tiles" style="${tilesPos};padding:${pad}px">
        ${winHTML(c, g, "Ghostty", true, 7)}${winHTML(c, g, "Zed", false, 4)}${winHTML(c, g, "Safari", false, 4)}
@@ -323,14 +391,19 @@ function render() {
   document.getElementById("lName").textContent = L.label;
   document.getElementById("sBlurb").textContent = S.blurb;
   document.getElementById("lBlurb").textContent = L.blurb;
-  document.getElementById("cmd").textContent = `mull theme ${sKey} && mull layout ${lKey}`;
+  document.getElementById("cmd").textContent = (sKey === lKey && LOOKS.includes(sKey))
+    ? `mull look ${sKey}`
+    : `mull theme ${sKey} && mull layout ${lKey}`;
 
   const shape = islands ? "islands" : (clear ? "transparent" : "slab");
   document.getElementById("facts").innerHTML = [
     `<span class="f"><b>gaps</b> ${g.GAP_INNER}px</span>`,
     `<span class="f"><b>ring</b> ${g.BORDER_WIDTH}px ${g.BORDER_STYLE}${g.BORDER_INACTIVE === "on" ? "" : ", focused only"}</span>`,
     `<span class="f"><b>bar</b> ${g.BAR_HEIGHT}px ${v.BAR_POSITION}, ${shape}</span>`,
-    `<span class="f"><b>pips</b> ${v.PIP_MODE} · ${g.PIP_STYLE}</span>`,
+    `<span class="f"><b>chrome</b> ${g.CHROME || "chips"}</span>`,
+    `<span class="f"><b>pips</b> ${v.PIP_FORM || v.PIP_MODE} · ${g.PIP_STYLE}</span>`,
+    v.CPU_FORM === "graph" ? `<span class="f"><b>load</b> sparkline</span>` : "",
+    v.KEEP_NATIVE_MENUBAR === "on" ? `<span class="f"><b>menu bar</b> native kept</span>` : "",
     `<span class="f"><b>empty</b> ${v.HIDE_EMPTY === "on" ? "hidden" : "shown"}</span>`,
     `<span class="f"><b>accordion</b> ${g.ACCORDION_PADDING}px</span>`,
     `<span class="f"><i style="background:${c.AMBER}"></i>focus</span>`,
@@ -341,6 +414,8 @@ function render() {
     b.classList.toggle("on", b.dataset.style === sKey));
   document.querySelectorAll("[data-layout]").forEach(b =>
     b.classList.toggle("on", b.dataset.layout === lKey));
+  document.querySelectorAll("[data-look]").forEach(b =>
+    b.classList.toggle("on", b.dataset.look === sKey && b.dataset.look === lKey));
 
   try {
     localStorage.setItem("mullion-style", sKey);
@@ -349,6 +424,15 @@ function render() {
 }
 
 function buildRail() {
+  const kl = document.getElementById("lookList");
+  LOOKS.forEach(k => {
+    const s = STYLES[k], b = el("button", "opt");
+    b.dataset.look = k;
+    b.innerHTML = `<span class="sw" style="background:${s.c.DECK}"><i style="background:${s.c.AMBER}"></i></span>
+      <span class="nm">${s.label}</span><span class="meta">${s.g.CHROME || "chips"}</span>`;
+    b.addEventListener("click", () => { sKey = k; lKey = k; render(); });
+    kl.appendChild(b);
+  });
   const sl = document.getElementById("styleList");
   Object.entries(STYLES).forEach(([k, s]) => {
     const b = el("button", "opt"); b.dataset.style = k;

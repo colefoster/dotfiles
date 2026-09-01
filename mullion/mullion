@@ -9,6 +9,7 @@
 #   mull start|stop|restart
 #   mull theme [name]    list or switch the look — colour and geometry
 #   mull layout [name]   list or switch the bar — shape and contents
+#   mull look [name]     the four designed pairs, both halves at once
 #   mull reload          re-read configs without moving a window
 #   mull keys [filter]   the keymap, from the config itself
 #   mull edit [what]     open a config in $EDITOR
@@ -171,6 +172,37 @@ cmd_layout() {
   cmd_reload
 }
 
+# ---------------------------------------------------------------- look
+# Styles and layouts stay independent — but four of them were designed as
+# pairs, and picking both by hand every time is a papercut.
+cmd_look() {
+  if [ $# -eq 0 ]; then
+    local as al; as="$(cat "$DIR/active")"; al="$(cat "$DIR/active-layout")"
+    printf '  %-12s %s\n' NAME "STYLE + LAYOUT"
+    for n in console dock instrument system; do
+      local mark=" "
+      [ "$as" = "$n" ] && [ "$al" = "$n" ] && mark="${c_amber}*${c_off}"
+      printf '%b %-12s %s\n' "$mark" "$n" "$n + $n"
+    done
+    printf '\n  %sanything else: mull theme <x> and mull layout <y> separately%s\n' "$c_dim" "$c_off"
+    printf '  %scurrently: %s + %s%s\n' "$c_dim" "$as" "$al" "$c_off"
+    return 0
+  fi
+  local n=$1
+  [ -r "$STYLES/$n.sh" ] && [ -r "$DIR/layouts/$n.sh" ] \
+    || { echo "No paired look '$n'. Try: mull look"; exit 1; }
+  printf '%s\n' "$n" > "$DIR/active"
+  printf '%s\n' "$n" > "$DIR/active-layout"
+  write_gaps
+  # shellcheck disable=SC1090
+  ( . "$STYLES/$n.sh"; . "$DIR/layouts/$n.sh"
+    printf '%sLook%s   %s%s%s\n' "$c_b" "$c_off" "$c_amber" "$NAME" "$c_off"
+    printf '  %schrome %s · %s bar · %s pips · gaps %s · ring %s %s%s\n' "$c_dim" \
+      "$CHROME" "$BAR_POSITION" "$PIP_FORM" "$GAP_INNER" "$BORDER_WIDTH" "$BORDER_STYLE" "$c_off"
+    [ "$KEEP_NATIVE_MENUBAR" = on ] && printf '  %skeeps the macOS menu bar — unhide it if you hid it%s\n' "$c_amber" "$c_off" )
+  cmd_reload
+}
+
 # ---------------------------------------------------------------- keys
 cmd_keys() {
   local filter="${1:-}"
@@ -270,6 +302,7 @@ case "${1:-status}" in
   reload)      cmd_reload ;;
   theme|style) shift; cmd_theme "$@" ;;
   layout|bar)  shift; cmd_layout "$@" ;;
+  look)        shift; cmd_look "$@" ;;
   keys)        shift; cmd_keys "${1:-}" ;;
   edit)        shift; cmd_edit "${1:-keys}" ;;
   doctor)      cmd_doctor ;;
