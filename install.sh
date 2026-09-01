@@ -48,34 +48,8 @@ if [[ "$PLATFORM" == "macos" ]]; then
     "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
 fi
 
-# Mullion — the desktop: AeroSpace + SketchyBar + JankyBorders + caps→hyper.
-#   brew install --cask nikitabobko/tap/aerospace
-#   brew install FelixKratz/formulae/sketchybar FelixKratz/formulae/borders
-# Nothing starts at login. AeroSpace launches the bar and the borders itself,
-# so opening AeroSpace turns the whole setup on and quitting it turns it off.
-if [[ "$PLATFORM" == "macos" ]]; then
-  mkdir -p "$HOME/.config/aerospace"
-  link "$DOTFILES_DIR/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
-  link "$DOTFILES_DIR/mullion"    "$HOME/.config/mullion"
-  link "$DOTFILES_DIR/sketchybar" "$HOME/.config/sketchybar"
-  link "$DOTFILES_DIR/borders"    "$HOME/.config/borders"
-
-  # One command for the whole desktop, plus the short alias.
-  mkdir -p "$HOME/.local/bin"
-  link "$DOTFILES_DIR/mullion/mullion" "$HOME/.local/bin/mullion"
-  link "$DOTFILES_DIR/mullion/mullion" "$HOME/.local/bin/mull"
-
-  # Karabiner rewrites karabiner.json in place whenever you touch its UI, which
-  # would clobber a symlink's target. Copy it, and only when there is nothing
-  # there yet — an existing profile is the user's, not ours.
-  mkdir -p "$HOME/.config/karabiner"
-  if [[ ! -e "$HOME/.config/karabiner/karabiner.json" ]]; then
-    echo "  Copying karabiner.json (caps -> hyper)"
-    cp "$DOTFILES_DIR/karabiner/karabiner.json" "$HOME/.config/karabiner/karabiner.json"
-  else
-    echo "  Skipping karabiner.json — one already exists; merge by hand if you want the caps rule"
-  fi
-fi
+# The window manager lives in its own repo now — github.com/colefoster/mullion.
+#   git clone … ~/Dev/mullion && ~/Dev/mullion/install.sh
 
 # Claude Code
 mkdir -p "$HOME/.claude"
@@ -101,6 +75,7 @@ echo "Done! Restart your shell or run: source ~/.zshrc"
 echo ""
 echo "Not handled here, on purpose:"
 echo "  packages       brew bundle install --file=$DOTFILES_DIR/Brewfile"
+echo "  the desktop    ~/Dev/mullion/install.sh"
 echo "  macOS settings bash $DOTFILES_DIR/macos-defaults.sh"
 echo "  then           mull doctor"
 echo "  permissions    Accessibility + Input Monitoring — System Settings, by hand"
