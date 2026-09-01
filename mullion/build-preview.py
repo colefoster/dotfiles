@@ -1,4 +1,61 @@
-<meta charset="utf-8">
+#!/usr/bin/env python3
+"""Regenerate mullion/preview.html from the real style and layout files.
+
+The page is a chooser: pick a style, pick a layout, see the combination and the
+command that applies it. Everything it draws comes from styles/*.sh and
+layouts/*.sh, so the preview cannot drift from what the daemons read.
+
+    python3 build-preview.py
+"""
+
+import json
+import pathlib
+import re
+
+HERE = pathlib.Path(__file__).parent
+STYLE_ORDER = ["deck", "ubuntu", "nord", "gruvbox", "dense", "daylight"]
+LAYOUT_ORDER = ["classic", "islands", "readout", "ambient", "bottom"]
+
+
+def blurb_of(text):
+    return " ".join(l.lstrip("#").strip() for l in text.splitlines()
+                    if l.startswith("#") and not l.startswith("#!")).strip()
+
+
+def argb_to_css(v):
+    """0xAARRGGBB -> #RRGGBBAA"""
+    v = v[2:]
+    return "#" + v[2:] + v[:2]
+
+
+def read_styles():
+    out = {}
+    for name in STYLE_ORDER:
+        txt = (HERE / "styles" / f"{name}.sh").read_text()
+        pairs = dict(re.findall(r"\b([A-Z_]+)=([0-9a-zA-Z.$_]+)", txt))
+        out[name] = {
+            "label": re.search(r'NAME="([^"]+)"', txt).group(1),
+            "blurb": blurb_of(txt),
+            "c": {k: argb_to_css(v) for k, v in pairs.items() if v.startswith("0x")},
+            "g": {k: v for k, v in pairs.items() if not v.startswith("0x")},
+        }
+    return out
+
+
+def read_layouts():
+    out = {}
+    for name in LAYOUT_ORDER:
+        txt = (HERE / "layouts" / f"{name}.sh").read_text()
+        v = dict(re.findall(r'^([A-Z_]+)="?([^"\n]*)"?$', txt, re.M))
+        out[name] = {
+            "label": v.get("LAYOUT_NAME", name),
+            "blurb": blurb_of(txt),
+            "v": v,
+        }
+    return out
+
+
+PAGE = """<meta charset="utf-8">
 <title>Mullion</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,307 +203,8 @@ footer code{font-family:"IBM Plex Mono",monospace;color:var(--accent)}
 
 <script>
 "use strict";
-const STYLES = {
- "deck": {
-  "label": "Deck",
-  "blurb": "Deck \u2014 the original. Moderate gaps, a thick round focus ring, flush bar with a filled chip on the active workspace.",
-  "c": {
-   "DECK": "#0b1016e6",
-   "PANEL": "#141c25ff",
-   "LINE": "#26313fff",
-   "INK": "#e7ecf2ff",
-   "DIM": "#8795a6ff",
-   "FAINT": "#566270ff",
-   "AMBER": "#f2a93bff",
-   "CYAN": "#4fb3c4ff",
-   "GOOD": "#74ce94ff",
-   "BAD": "#e27162ff"
-  },
-  "g": {
-   "BAR_HEIGHT": "32",
-   "BAR_MARGIN": "0",
-   "BAR_RADIUS": "0",
-   "BAR_PADDING": "8",
-   "BAR_BLUR": "24",
-   "BAR_YOFF": "0",
-   "ITEM_RADIUS": "5",
-   "ITEM_HEIGHT": "22",
-   "ITEM_BG": "on",
-   "FONT_SIZE": "12",
-   "PIP_STYLE": "chip",
-   "BORDER_WIDTH": "5.0",
-   "BORDER_STYLE": "round",
-   "BORDER_INACTIVE": "on",
-   "GAP_INNER": "8",
-   "GAP_OUTER": "8",
-   "GAP_TOP_BUILTIN": "8",
-   "GAP_TOP_EXTERNAL": "40",
-   "ACCORDION_PADDING": "30"
-  }
- },
- "ubuntu": {
-  "label": "Ubuntu",
-  "blurb": "Ubuntu \u2014 Yaru's flat aubergine. Tight gaps, squared-off chips, a solid bar hard against the top edge. Orange only ever means focus.",
-  "c": {
-   "DECK": "#2c001ef2",
-   "PANEL": "#3d1132ff",
-   "LINE": "#5e2750ff",
-   "INK": "#f7f4f2ff",
-   "DIM": "#bfa8b8ff",
-   "FAINT": "#8a6f83ff",
-   "AMBER": "#e95420ff",
-   "CYAN": "#9b7fa6ff",
-   "GOOD": "#5fb381ff",
-   "BAD": "#c7162bff"
-  },
-  "g": {
-   "BAR_HEIGHT": "30",
-   "BAR_MARGIN": "0",
-   "BAR_RADIUS": "0",
-   "BAR_PADDING": "6",
-   "BAR_BLUR": "0",
-   "BAR_YOFF": "0",
-   "ITEM_RADIUS": "3",
-   "ITEM_HEIGHT": "22",
-   "ITEM_BG": "on",
-   "FONT_SIZE": "12",
-   "PIP_STYLE": "chip",
-   "BORDER_WIDTH": "4.0",
-   "BORDER_STYLE": "square",
-   "BORDER_INACTIVE": "on",
-   "GAP_INNER": "5",
-   "GAP_OUTER": "5",
-   "GAP_TOP_BUILTIN": "6",
-   "GAP_TOP_EXTERNAL": "36",
-   "ACCORDION_PADDING": "24"
-  }
- },
- "nord": {
-  "label": "Nord",
-  "blurb": "Nord \u2014 airy and cold. Wide gaps, a thin ring, and a floating rounded bar that sits inset from the edges. The calmest of the set; nothing shouts.",
-  "c": {
-   "DECK": "#2e3440d9",
-   "PANEL": "#3b4252ff",
-   "LINE": "#4c566aff",
-   "INK": "#eceff4ff",
-   "DIM": "#d8dee9ff",
-   "FAINT": "#7b8798ff",
-   "AMBER": "#88c0d0ff",
-   "CYAN": "#81a1c1ff",
-   "GOOD": "#a3be8cff",
-   "BAD": "#bf616aff"
-  },
-  "g": {
-   "BAR_HEIGHT": "34",
-   "BAR_MARGIN": "10",
-   "BAR_RADIUS": "10",
-   "BAR_PADDING": "12",
-   "BAR_BLUR": "40",
-   "BAR_YOFF": "6",
-   "ITEM_RADIUS": "9",
-   "ITEM_HEIGHT": "24",
-   "ITEM_BG": "on",
-   "FONT_SIZE": "12",
-   "PIP_STYLE": "dot",
-   "BORDER_WIDTH": "3.0",
-   "BORDER_STYLE": "round",
-   "BORDER_INACTIVE": "off",
-   "GAP_INNER": "16",
-   "GAP_OUTER": "16",
-   "GAP_TOP_BUILTIN": "16",
-   "GAP_TOP_EXTERNAL": "58",
-   "ACCORDION_PADDING": "40"
-  }
- },
- "gruvbox": {
-  "label": "Gruvbox",
-  "blurb": "Gruvbox \u2014 chunky and warm. Heavy square borders, hard-edged chips, no blur. Everything a stop lower in saturation than it looks like it should be.",
-  "c": {
-   "DECK": "#1d2021ff",
-   "PANEL": "#32302fff",
-   "LINE": "#504945ff",
-   "INK": "#ebdbb2ff",
-   "DIM": "#bdae93ff",
-   "FAINT": "#7c6f64ff",
-   "AMBER": "#fabd2fff",
-   "CYAN": "#8ec07cff",
-   "GOOD": "#b8bb26ff",
-   "BAD": "#fb4934ff"
-  },
-  "g": {
-   "BAR_HEIGHT": "30",
-   "BAR_MARGIN": "0",
-   "BAR_RADIUS": "0",
-   "BAR_PADDING": "6",
-   "BAR_BLUR": "0",
-   "BAR_YOFF": "0",
-   "ITEM_RADIUS": "0",
-   "ITEM_HEIGHT": "24",
-   "ITEM_BG": "on",
-   "FONT_SIZE": "12",
-   "PIP_STYLE": "underline",
-   "BORDER_WIDTH": "6.0",
-   "BORDER_STYLE": "square",
-   "BORDER_INACTIVE": "on",
-   "GAP_INNER": "10",
-   "GAP_OUTER": "10",
-   "GAP_TOP_BUILTIN": "10",
-   "GAP_TOP_EXTERNAL": "42",
-   "ACCORDION_PADDING": "30"
-  }
- },
- "dense": {
-  "label": "Dense",
-  "blurb": "Dense \u2014 every pixel is screen. No gaps at all, a hairline focus ring, and a short bar with no chrome. Windows meet edge to edge, i3-with-no-config style.",
-  "c": {
-   "DECK": "#0d0f12ff",
-   "PANEL": "#15181dff",
-   "LINE": "#2a2f37ff",
-   "INK": "#d7dbe0ff",
-   "DIM": "#868d97ff",
-   "FAINT": "#4d545dff",
-   "AMBER": "#5ec8f2ff",
-   "CYAN": "#7f8894ff",
-   "GOOD": "#6fbf8bff",
-   "BAD": "#d96a5eff"
-  },
-  "g": {
-   "BAR_HEIGHT": "24",
-   "BAR_MARGIN": "0",
-   "BAR_RADIUS": "0",
-   "BAR_PADDING": "5",
-   "BAR_BLUR": "0",
-   "BAR_YOFF": "0",
-   "ITEM_RADIUS": "0",
-   "ITEM_HEIGHT": "18",
-   "ITEM_BG": "off",
-   "FONT_SIZE": "11",
-   "PIP_STYLE": "underline",
-   "BORDER_WIDTH": "1.0",
-   "BORDER_STYLE": "square",
-   "BORDER_INACTIVE": "off",
-   "GAP_INNER": "0",
-   "GAP_OUTER": "0",
-   "GAP_TOP_BUILTIN": "0",
-   "GAP_TOP_EXTERNAL": "26",
-   "ACCORDION_PADDING": "16"
-  }
- },
- "daylight": {
-  "label": "Daylight",
-  "blurb": "Daylight \u2014 the only light one, for a bright room or a monitor at noon. Generous gaps so the white ground doesn't read as one flat sheet.",
-  "c": {
-   "DECK": "#f4f6f8f2",
-   "PANEL": "#e6ebf1ff",
-   "LINE": "#c8d2dcff",
-   "INK": "#14202bff",
-   "DIM": "#4a5c6eff",
-   "FAINT": "#93a2b2ff",
-   "AMBER": "#1f5fa8ff",
-   "CYAN": "#0f6b78ff",
-   "GOOD": "#1c7a4dff",
-   "BAD": "#b3372aff"
-  },
-  "g": {
-   "BAR_HEIGHT": "32",
-   "BAR_MARGIN": "8",
-   "BAR_RADIUS": "8",
-   "BAR_PADDING": "10",
-   "BAR_BLUR": "30",
-   "BAR_YOFF": "4",
-   "ITEM_RADIUS": "6",
-   "ITEM_HEIGHT": "22",
-   "ITEM_BG": "on",
-   "FONT_SIZE": "12",
-   "PIP_STYLE": "chip",
-   "BORDER_WIDTH": "4.0",
-   "BORDER_STYLE": "round",
-   "BORDER_INACTIVE": "on",
-   "GAP_INNER": "12",
-   "GAP_OUTER": "12",
-   "GAP_TOP_BUILTIN": "12",
-   "GAP_TOP_EXTERNAL": "50",
-   "ACCORDION_PADDING": "34"
-  }
- }
-};
-const LAYOUTS = {
- "classic": {
-  "label": "Classic",
-  "blurb": "Classic \u2014 one flush slab. Workspaces and the focused app on the left, machine readouts on the right, notch in the dead centre.",
-  "v": {
-   "LAYOUT_NAME": "Classic",
-   "BAR_POSITION": "top",
-   "BAR_ISLANDS": "off",
-   "BAR_TRANSPARENT": "off",
-   "PIP_MODE": "number",
-   "HIDE_EMPTY": "off",
-   "ANIMATE": "on",
-   "ITEMS_LEFT": "spaces front_app",
-   "ITEMS_RIGHT": "cpu battery clock"
-  }
- },
- "islands": {
-  "label": "Islands",
-  "blurb": "Islands \u2014 detached pills on a transparent bar instead of one slab. The waybar look. Groups read as separate objects, so the eye finds them without labels.",
-  "v": {
-   "LAYOUT_NAME": "Islands",
-   "BAR_POSITION": "top",
-   "BAR_ISLANDS": "on",
-   "BAR_TRANSPARENT": "on",
-   "PIP_MODE": "icons",
-   "HIDE_EMPTY": "on",
-   "ANIMATE": "on",
-   "ITEMS_LEFT": "spaces front_app",
-   "ITEMS_RIGHT": "net claude cpu battery clock"
-  }
- },
- "readout": {
-  "label": "Readout",
-  "blurb": "Readout \u2014 i3status energy. Everything on screen at once, tight and mono, nothing hidden behind a click. Pairs with the Dense style.",
-  "v": {
-   "LAYOUT_NAME": "Readout",
-   "BAR_POSITION": "top",
-   "BAR_ISLANDS": "off",
-   "BAR_TRANSPARENT": "off",
-   "PIP_MODE": "number",
-   "HIDE_EMPTY": "off",
-   "ANIMATE": "off",
-   "ITEMS_LEFT": "spaces front_app",
-   "ITEMS_RIGHT": "rec net claude cpu battery clock"
-  }
- },
- "ambient": {
-  "label": "Ambient",
-  "blurb": "Ambient \u2014 workspaces and the time, nothing else, on a bar you can see through. For when the desktop should disappear while you work.",
-  "v": {
-   "LAYOUT_NAME": "Ambient",
-   "BAR_POSITION": "top",
-   "BAR_ISLANDS": "off",
-   "BAR_TRANSPARENT": "on",
-   "PIP_MODE": "icons",
-   "HIDE_EMPTY": "on",
-   "ANIMATE": "on",
-   "ITEMS_LEFT": "spaces",
-   "ITEMS_RIGHT": "clock"
-  }
- },
- "bottom": {
-  "label": "Bottom",
-  "blurb": "Bottom \u2014 the bar moves to the foot of the screen, which sidesteps the notch entirely and hands the top strip back to macOS's own menu bar.",
-  "v": {
-   "LAYOUT_NAME": "Bottom",
-   "BAR_POSITION": "bottom",
-   "BAR_ISLANDS": "off",
-   "BAR_TRANSPARENT": "off",
-   "PIP_MODE": "icons",
-   "HIDE_EMPTY": "off",
-   "ANIMATE": "on",
-   "ITEMS_LEFT": "spaces front_app",
-   "ITEMS_RIGHT": "rec net claude cpu battery clock"
-  }
- }
-};
+const STYLES = __STYLES__;
+const LAYOUTS = __LAYOUTS__;
 const SCALE = 0.78;
 
 const ITEMS = {
@@ -531,7 +289,7 @@ function render() {
     left += islands ? `<span style="${isleCSS}">${fa}</span>` : fa;
   }
 
-  const right = v.ITEMS_RIGHT.split(/\s+/).filter(Boolean).map(k => {
+  const right = v.ITEMS_RIGHT.split(/\\s+/).filter(Boolean).map(k => {
     const it = ITEMS[k]; if (!it) return "";
     return `<span style="display:flex;align-items:center;gap:4px;padding:0 5px">
       <span style="width:5px;height:5px;border-radius:50%;background:${c[it.col]};display:block"></span>
@@ -636,3 +394,18 @@ document.getElementById("copy").addEventListener("click", () => {
 buildRail();
 render();
 </script>
+"""
+
+
+def main():
+    html = (PAGE
+            .replace("__STYLES__", json.dumps(read_styles(), indent=1))
+            .replace("__LAYOUTS__", json.dumps(read_layouts(), indent=1)))
+    out = HERE / "preview.html"
+    out.write_text(html)
+    print("wrote %s (%d styles, %d layouts, %d bytes)"
+          % (out, len(STYLE_ORDER), len(LAYOUT_ORDER), len(html)))
+
+
+if __name__ == "__main__":
+    main()
