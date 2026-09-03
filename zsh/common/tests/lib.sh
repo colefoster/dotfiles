@@ -18,8 +18,25 @@
 
 set -uo pipefail
 
+# BASH_SOURCE is a bashism, and every guard below is written in bash. Under zsh
+# this file used to fail here and carry on with COMMON_DIR unset, which left
+# t_teardown free to run `tmux kill-server` against whatever server it could
+# reach — the real one.
+if [ -z "${BASH_VERSION:-}" ]; then
+	echo "cc tests need bash: bash tests/run.sh" >&2
+	exit 1
+fi
+
 COMMON_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 REAL_HOME=$HOME
+
+# Nothing in this suite may ever reach the tmux server holding your real work.
+# Two things could point at it: an inherited $TMUX (the suite is normally run
+# from inside a Claude session) and an unset $TMUX_TMPDIR, which resolves to the
+# default socket. Drop the first and park the second on a dead path, so a tmux
+# call that escapes the sandbox fails instead of connecting.
+unset TMUX TMUX_PANE
+export TMUX_TMPDIR=/nonexistent/cc-tests-not-set-up
 
 PASS=0
 FAIL=0
@@ -84,6 +101,13 @@ t_setup() {
 		"$HOME/Work"
 	export PATH=$SANDBOX/bin:$PATH
 
+	# Prove the isolation before any test is allowed to run a tmux command: the
+	# sandbox server must be the only one this process can see.
+	if [ -n "$(tmux ls 2>/dev/null)" ]; then
+		printf '  %s\n' "$(_red "sandbox tmux socket is not empty — aborting before anything is killed")"
+		exit 1
+	fi
+
 	# A stand-in for claude: records the tmux session it was started in the way
 	# the real one does, then parks so the session stays alive to assert against.
 	cat > "$SANDBOX/bin/claude" <<'FAKE'
@@ -107,7 +131,14 @@ ZRC
 }
 
 t_teardown() {
-	tmux kill-server 2>/dev/null
+	# kill-server is only safe against the sandbox socket. A teardown reached
+	# before t_setup, or after something cleared TMUX_TMPDIR, would otherwise take
+	# down the server holding your real sessions.
+	if [ -n "${SANDBOX:-}" ] && [ "${TMUX_TMPDIR:-}" = "$SANDBOX/tmux" ]; then
+		tmux kill-server 2>/dev/null
+	else
+		printf '  %s\n' "$(_red "refusing kill-server: TMUX_TMPDIR is not this test's sandbox")"
+	fi
 	[ -n "${SANDBOX:-}" ] && rm -rf "$SANDBOX"
 	export HOME=$REAL_HOME
 	unset TMUX_TMPDIR

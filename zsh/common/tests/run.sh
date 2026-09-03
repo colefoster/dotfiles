@@ -7,6 +7,8 @@
 # Each test is named for the bug it locks down. See lib.sh for why these run
 # against a real tmux server and real ptys rather than mocks.
 
+# lib.sh drops the inherited $TMUX and parks TMUX_TMPDIR off the real socket
+# before any test runs; see the guards there.
 cd "$(dirname "$0")" || exit 1
 . ./lib.sh
 
