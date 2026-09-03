@@ -177,15 +177,29 @@ claude() {
 			_cc_account "$dir"
 			set -- --resume "${pick#resume:}"
 		elif [[ -n $pick && $pick != __new__ ]]; then
+			# A row names one Claude, and one Claude is one pane: a session split
+			# by cc-spawn holds two of them. Reduce the row to the session to open
+			# and, when the row carries one, the pane to land the cursor on. A row
+			# that is a bare session name has no pane to select.
+			local psess=$pick ppane=
+			if [[ $pick == pane:* ]]; then
+				local key=${pick#pane:}
+				psess=${key%%:*}
+				ppane=${key##*.}
+			fi
 			# Inside tmux, moving this client is the whole job. Attaching from
 			# here would nest a client inside a session; switch-client walks over
 			# instead. Whoever else holds it is sent away first, for the reason the
 			# outside path steals: two clients mirror the session and both get
 			# squeezed to the smaller size.
 			if [[ -n $TMUX ]]; then
-				[[ $(tmux display -p '#{session_name}') == $pick ]] && return 0
-				tmux detach-client -s "=$pick" 2>/dev/null
-				tmux switch-client -t "=$pick"
+				if [[ $(tmux display -p '#{session_name}') == $psess ]]; then
+					[[ -n $ppane ]] && tmux select-pane -t "$ppane" 2>/dev/null
+					return 0
+				fi
+				tmux detach-client -s "=$psess" 2>/dev/null
+				[[ -n $ppane ]] && tmux select-pane -t "$ppane" 2>/dev/null
+				tmux switch-client -t "=$psess"
 				return
 			fi
 			# A session open in another window has to be stolen; attaching a second
@@ -197,16 +211,18 @@ claude() {
 			# cc-foo-123456-2 and the steal decision is read off the wrong session.
 			# Match the name exactly out of the session list instead.
 			local row=$(tmux ls -F $'#{session_name}\t#{session_attached}\t#{session_path}' 2>/dev/null |
-				awk -F'\t' -v s="$pick" '$1 == s { print $2 "\t" $3; exit }')
+				awk -F'\t' -v s="$psess" '$1 == s { print $2 "\t" $3; exit }')
 			[[ ${row%%$'\t'*} == 0 ]] || steal=-d
 			# The footer names where the session lives, not where it was picked
 			# from: resuming one from another project told you to run claude in
 			# this directory, where it does not exist.
 			local pdir=${row#*$'\t'}
 			[[ -n $pdir ]] || pdir=$PWD
-			tmux attach $steal -t "=$pick"
+			# Selection is session state, so it survives the attach that follows.
+			[[ -n $ppane ]] && tmux select-pane -t "$ppane" 2>/dev/null
+			tmux attach $steal -t "=$psess"
 			local attach_status=$?
-			_cc_ended "$pick" "$pdir"
+			_cc_ended "$psess" "$pdir"
 			return $attach_status
 		fi
 	else

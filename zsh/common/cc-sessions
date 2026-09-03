@@ -33,14 +33,32 @@ nl='
 
 roots="$HOME/.claude $CC_WORK_CONFIG"
 
-# tmux session name -> claude session id, for every live Claude that recorded one.
+# tmux pane key -> claude session id, for every live Claude that recorded one.
+# The key is the whole "<session>:@win.%pane" string Claude records, not just the
+# session name: a spun-off split puts a second conversation in the same session,
+# and keying on the session name collapsed the two onto one row — one resume
+# opened both, and one ctrl-x killed both.
+#
+# Records outlive the process that wrote them, and a session name gets reused, so
+# a dead record can claim a pane key that now belongs to somebody else. Drop the
+# ones with no process behind them.
 map=$(
 	for root in $roots; do
 		[ -d "$root/sessions" ] || continue
-		jq -r 'select(.tmux and .sessionId) | "\(.tmux | split(":")[0])\t\(.sessionId)"' \
+		jq -r 'select(.tmux and .sessionId) | "\(.pid // 0)\t\(.tmux)\t\(.sessionId)"' \
 			"$root"/sessions/*.json 2>/dev/null
+	done |
+	while IFS="$tab" read -r pid key sid; do
+		[ "$pid" = 0 ] || kill -0 "$pid" 2>/dev/null || continue
+		printf '%s\t%s\n' "$key" "$sid"
 	done
 )
+
+# How many Claude panes a tmux session holds. One means the session and the
+# conversation are the same thing; more means the rows need telling apart.
+cc_panes() {
+	printf '%s\n' "$map" | awk -F"$tab" -v n="$1:" 'index($1, n) == 1 { c++ } END { print c + 0 }'
+}
 index=$(find $roots -maxdepth 3 -path '*/projects/*' -name '*.jsonl' 2>/dev/null)
 
 # Every session id with a live process behind it, tmux-wrapped or not, so an
@@ -84,7 +102,11 @@ cc_file() {
 cc_sid() {
 	case "$1" in
 		resume:*) printf '%s\n' "${1#resume:}" ;;
-		*) printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }' ;;
+		pane:*) printf '%s\n' "$map" |
+			awk -F"$tab" -v k="${1#pane:}" '$1 == k { print $2; exit }' ;;
+		# A bare session name still resolves, for a row that predates pane keys.
+		*) printf '%s\n' "$map" |
+			awk -F"$tab" -v n="$1:" 'index($1, n) == 1 { print $2; exit }' ;;
 	esac
 }
 
@@ -138,6 +160,9 @@ cc_dir() {
 			head -c 200000 "$file" 2>/dev/null |
 				grep -m1 -o '"cwd":"[^"]*"' | cut -d'"' -f4
 			;;
+		pane:*)
+			key=${1#pane:}
+			tmux display -pt "${key##*.}" '#{pane_current_path}' 2>/dev/null ;;
 		*) tmux display -pt "$1" '#{session_path}' 2>/dev/null ;;
 	esac
 }
@@ -180,16 +205,31 @@ if [ "$1" = --turns ]; then
 fi
 
 rows=$(
-	tmux ls -F "#{session_name}${tab}#{session_path}${tab}#{session_attached}${tab}#{session_last_attached}${tab}#{session_created}" 2>/dev/null |
-	while IFS="$tab" read -r name path attached last created; do
+	# Panes, not sessions: a session split by cc-spawn holds two conversations,
+	# and each of them is separately resumable and separately killable.
+	tmux list-panes -a -F "#{session_name}${tab}#{window_id}${tab}#{pane_id}${tab}#{pane_index}${tab}#{pane_current_path}${tab}#{session_attached}${tab}#{session_last_attached}${tab}#{session_created}" 2>/dev/null |
+	while IFS="$tab" read -r name win pane idx path attached last created; do
 		[ "${name#cc-}" != "$name" ] || continue
+
+		npanes=$(cc_panes "$name")
+		id="pane:$name:$win.$pane"
+		mark=
+		[ "$npanes" -gt 1 ] && mark=$idx
+		if [ -z "$(cc_sid "$id")" ]; then
+			# No Claude here — a plain shell pane. A session made entirely of
+			# them still deserves one row; a stray shell beside a live Claude
+			# does not.
+			[ "$npanes" = 0 ] && [ "$idx" = 1 ] || continue
+			id=$name
+			mark=
+		fi
 
 		# Fall back to tmux's own clock when there is no transcript to read.
 		stamp=$last
 		[ "$stamp" -gt 0 ] 2>/dev/null || stamp=$created
 		text=
 
-		if msg=$(cc_last_message "$name"); then
+		if msg=$(cc_last_message "$id"); then
 			stamp=${msg%%"$tab"*}
 			text=${msg#*"$tab"}
 		fi
@@ -199,7 +239,7 @@ rows=$(
 		recent=$stamp
 		[ "$last" -gt "$recent" ] 2>/dev/null && recent=$last
 		[ "$attached" = 0 ] && kind=0 || kind=1
-		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$name" "$path" "$((now - stamp))" "$((now - recent))" "$kind" "$text"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$path" "$((now - stamp))" "$((now - recent))" "$kind" "$text" "$mark"
 	done
 
 	# Sessions you quit out of still have their transcript, so offer the recent
@@ -227,7 +267,7 @@ rows=$(
 		case "$nl$live_ids$nl" in (*"$nl$uuid$nl"*) continue ;; esac
 		msg=$(cc_last_message "resume:$uuid") || continue
 		stamp=${msg%%"$tab"*}
-		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" ''
 		seen="$seen$uuid
 "
 		shown=$((shown + 1))
@@ -275,19 +315,35 @@ rows=$(
 		[ "$(printf '%s' "$dir" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$cwd" | tr 'A-Z' 'a-z')" ] && continue
 		msg=$(cc_last_message "resume:$uuid") || continue
 		stamp=${msg%%"$tab"*}
-		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$dir" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$dir" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" ''
 		other=$((other + 1))
 	done
 )
 
-# Reap first, so a session killed here never appears in the list below.
+# Reap first, so a session killed here never appears in the list below. Reaping
+# is per session, not per row: killing a session because one of its panes went
+# quiet would take a live sibling conversation with it, so every pane has to be
+# stale before the session goes.
 if [ "$days" != 0 ]; then
 	cutoff=$((days * 86400))
-	printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && $5 == 0 && $4 > c { print $1 }' |
-	while read -r stale; do
-		tmux kill-session -t "=$stale" 2>/dev/null
+	dead=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '
+		$1 == "" || $1 ~ /^resume:/ { next }
+		{
+			s = $1; sub(/^pane:/, "", s); sub(/:.*/, "", s)
+			n[s]++
+			if ($5 == 0 && $4 > c) stale[s]++
+		}
+		END { for (s in n) if (stale[s] == n[s]) print s }')
+	printf '%s\n' "$dead" | while read -r stale; do
+		[ -n "$stale" ] && tmux kill-session -t "=$stale" 2>/dev/null
 	done
-	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v c="$cutoff" '$1 != "" && ($5 == 1 || $4 <= c)')
+	rows=$(printf '%s\n' "$rows" | awk -F"$tab" -v k="$dead" '
+		BEGIN { n = split(k, a, "\n"); for (i = 1; i <= n; i++) if (a[i] != "") gone[a[i]] = 1 }
+		$1 == "" { next }
+		{
+			s = $1; sub(/^pane:/, "", s); sub(/:.*/, "", s)
+			if (!(s in gone)) print
+		}')
 fi
 
 case "$cwd" in
@@ -308,9 +364,13 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		if (index(dir, home) == 1) dir = "~" substr(dir, length(home) + 1)
 		# Sibling sessions share a directory, so surface the -N suffix that tells
 		# them apart. The 6-char hash is the last segment on a base session.
-		k = split($1, part, "-")
+		name = $1; sub(/^pane:/, "", name); sub(/:.*/, "", name)
+		k = split(name, part, "-")
 		if (part[k] ~ /^[0-9]+$/ && length(part[k]) < 6 && length(part[k - 1]) == 6)
 			dir = dir " #" part[k]
+		# Two conversations in one session: say which pane, so the rows are not
+		# two identical lines.
+		if ($7 != "") dir = dir " p" $7
 		here = (tolower($2) == tolower(cwd)) ? 0 : 1
 		# One chronological list, newest first, whatever the state: what you
 		# touched last is what you are most likely reaching for. State stays

@@ -21,6 +21,18 @@ case "$name" in
 		dir=${dir:-${CC_CWD:-$PWD}}
 		label="ended · resuming starts a new window there"
 		;;
+	pane:*)
+		key=${name#pane:}
+		pane=${key##*.}
+		dir=$(tmux display -pt "$pane" '#{pane_current_path}' 2>/dev/null)
+		label=$key
+		# Only worth naming the pane when there is a sibling to tell it from.
+		np=$(tmux display -pt "$pane" '#{window_panes}' 2>/dev/null)
+		[ "$np" = 1 ] ||
+			label="$label · pane $(tmux display -pt "$pane" '#{pane_index}' 2>/dev/null) of $np"
+		[ "$(tmux display -pt "$pane" '#{session_attached}' 2>/dev/null)" = 0 ] ||
+			label="$label · open in another window"
+		;;
 	*)
 		dir=$(tmux display -pt "$name" '#{session_path}' 2>/dev/null)
 		label=$name

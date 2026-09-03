@@ -16,7 +16,21 @@ case "$1" in
 		;;
 esac
 
-printf 'Kill %s? [y/N] ' "$1"
-read -r answer
-[ "$answer" = y ] || [ "$answer" = Y ] || exit 0
-tmux kill-session -t "=$1" 2>/dev/null
+# A row names one Claude, which is one pane. Killing its whole tmux session
+# would take a spun-off sibling conversation with it; when the pane is the only
+# one there, tmux tears the session down anyway.
+case "$1" in
+    pane:*)
+        key=${1#pane:}
+        printf 'Kill %s? [y/N] ' "$key"
+        read -r answer
+        [ "$answer" = y ] || [ "$answer" = Y ] || exit 0
+        tmux kill-pane -t "${key##*.}" 2>/dev/null
+        ;;
+    *)
+        printf 'Kill %s? [y/N] ' "$1"
+        read -r answer
+        [ "$answer" = y ] || [ "$answer" = Y ] || exit 0
+        tmux kill-session -t "=$1" 2>/dev/null
+        ;;
+esac
