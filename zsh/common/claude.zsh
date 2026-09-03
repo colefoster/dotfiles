@@ -70,6 +70,7 @@ _CC_SESSIONS=${0:A:h}/cc-sessions
 _CC_PREVIEW=${0:A:h}/cc-preview
 _CC_KILL=${0:A:h}/cc-kill
 _CC_LAYOUT=${0:A:h}/cc-layout
+_CC_STATE=${0:A:h}/cc-state
 
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
@@ -96,6 +97,9 @@ _cc_pick() {
 	[[ -n $TMUX ]] && open_hint='jump this window to it'
 	local header=$'enter resume   ctrl-n new   ctrl-x kill   esc cancel\n'
 	header+="open = $open_hint   ended = resume the transcript"
+	# The dots are the only part of a row that says what the agent is doing
+	# rather than where it lives, so name them.
+	header+=$'\n\033[31m●\033[0m blocked   \033[33m●\033[0m working   \033[34m●\033[0m done, not looked at'
 
 	local sel
 	sel=$(print -rl -- "${rows[@]}" | fzf \
@@ -187,6 +191,9 @@ claude() {
 				psess=${key%%:*}
 				ppane=${key##*.}
 			fi
+			# Opening a session counts as looking at it: one that finished
+			# while you were elsewhere stops flagging itself for attention.
+			${_CC_STATE} seen "${ppane:-$psess}" 2>/dev/null
 			# Inside tmux, moving this client is the whole job. Attaching from
 			# here would nest a client inside a session; switch-client walks over
 			# instead. Whoever else holds it is sent away first, for the reason the
@@ -309,3 +316,12 @@ ccl() {
 	fi
 	tmux ls -F '#{session_name}	#{session_path}	(#{session_attached} attached)' 2>/dev/null | grep '^cc-'
 }
+
+# Agent state for the wrapped sessions — what each Claude is doing, rather than
+# where it lives.
+#
+#   ccstate list                what every live session is doing
+#   ccstate summary             the counts the tmux status line shows
+#   ccwait <pane|session> done  block until it finishes (2 = it needs input)
+ccstate() { ${_CC_STATE} "$@" }
+ccwait()  { ${_CC_STATE} wait "$@" }

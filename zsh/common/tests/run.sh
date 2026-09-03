@@ -302,6 +302,76 @@ test_preview_falls_back_to_the_whole_file() {
 }
 
 # ---------------------------------------------------------------------------
+# The picker has to say what each agent is doing, not just where it lives: a
+# session that finished while you were looking elsewhere is the one you want.
+# ---------------------------------------------------------------------------
+test_state_dot_marks_a_finished_session() {
+	t_setup "a finished session is dotted in the picker until it is seen"
+	local proj=$HOME/proj
+	mkdir -p "$proj"
+	tmux new-session -d -s cc-proj-123456 -c "$proj"
+	local key; key=$(tmux display -pt cc-proj-123456 '#{session_name}:#{window_id}.#{pane_id}')
+	local uuid=44444444-4444-4444-4444-444444444444
+	local when; when=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+	mkdir -p "$HOME/.claude/projects/-proj"
+	printf '{"type":"user","cwd":"%s","timestamp":"%s","message":{"role":"user","content":"STATE_MARKER"}}\n' \
+		"$proj" "$when" > "$HOME/.claude/projects/-proj/$uuid.jsonl"
+	# pid 0 means "no process to check", the same as a record the reaper spares.
+	printf '{"pid":0,"sessionId":"%s","tmux":"%s","cwd":"%s"}\n' "$uuid" "$key" "$proj" \
+		> "$HOME/.claude/sessions/999.json"
+
+	"$COMMON_DIR/cc-state" set "$uuid" done
+	local out; out=$(CC_CWD=$proj "$COMMON_DIR/cc-sessions" 2>/dev/null)
+	assert_contains "$out" "STATE_MARKER" "the session is listed at all"
+	assert_contains "$out" $'\033[34m●' "a finished session carries a dot"
+
+	# Resolving by pane id is what the wrapper does when you open a row.
+	"$COMMON_DIR/cc-state" seen "${key##*.}"
+	assert_eq "idle" "$("$COMMON_DIR/cc-state" get "$uuid")" "seen turns done into idle"
+	out=$(CC_CWD=$proj "$COMMON_DIR/cc-sessions" 2>/dev/null)
+	assert_not_contains "$out" $'\033[34m●' "the dot clears once it is seen"
+	t_teardown
+}
+
+# ---------------------------------------------------------------------------
+# Waiting for a session to finish when it is actually stuck on a question would
+# never return. It has to come back and say so.
+# ---------------------------------------------------------------------------
+test_state_wait_reports_a_blocked_session() {
+	t_setup "cc-state wait gives up on a session that needs input"
+	local proj=$HOME/proj
+	mkdir -p "$proj"
+	tmux new-session -d -s cc-proj-123456 -c "$proj"
+	local key; key=$(tmux display -pt cc-proj-123456 '#{session_name}:#{window_id}.#{pane_id}')
+	local uuid=55555555-5555-5555-5555-555555555555
+	printf '{"pid":0,"sessionId":"%s","tmux":"%s","cwd":"%s"}\n' "$uuid" "$key" "$proj" \
+		> "$HOME/.claude/sessions/998.json"
+	"$COMMON_DIR/cc-state" set "$uuid" blocked
+
+	local rc=0
+	timeout 10 "$COMMON_DIR/cc-state" wait "${key##*.}" done >/dev/null 2>&1 || rc=$?
+	assert_eq "2" "$rc" "blocked is reported rather than waited on"
+
+	"$COMMON_DIR/cc-state" set "$uuid" done
+	rc=0
+	timeout 10 "$COMMON_DIR/cc-state" wait cc-proj-123456 done >/dev/null 2>&1 || rc=$?
+	assert_eq "0" "$rc" "waiting by session name returns once it is done"
+	t_teardown
+}
+
+# ---------------------------------------------------------------------------
+# A state file outlives the session that wrote it, and a stale "done" would sit
+# on the status line forever.
+# ---------------------------------------------------------------------------
+test_state_summary_drops_dead_sessions() {
+	t_setup "the status-line summary ignores sessions that are gone"
+	"$COMMON_DIR/cc-state" set 66666666-6666-6666-6666-666666666666 done
+	local out; out=$("$COMMON_DIR/cc-state" summary 2>/dev/null)
+	assert_eq "" "$out" "no record behind it, nothing on the status line"
+	t_teardown
+}
+
+# ---------------------------------------------------------------------------
 
 ALL=$(declare -F | awk '{print $3}' | grep '^test_' | sort)
 FILTER=${1:-}

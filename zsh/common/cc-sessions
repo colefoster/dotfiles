@@ -54,6 +54,23 @@ map=$(
 	done
 )
 
+# What each Claude is doing, as recorded by the agent-state hooks: working,
+# blocked, done, idle. tmux cannot see any of this — a pane running a stuck
+# agent looks exactly like a pane running a busy one. Read the whole directory
+# once; there is one small file per session.
+state_dir=${CC_STATE_DIR:-$HOME/.claude/agent-state}
+states=$(
+	for f in "$state_dir"/*; do
+		[ -f "$f" ] || continue
+		printf '%s\t%s\n' "${f##*/}" "$(cut -f1 "$f" 2>/dev/null)"
+	done
+)
+
+cc_state() { # <session-id>
+	[ -n "$1" ] || return 0
+	printf '%s\n' "$states" | awk -F"$tab" -v s="$1" '$1 == s { print $2; exit }'
+}
+
 # How many Claude panes a tmux session holds. One means the session and the
 # conversation are the same thing; more means the rows need telling apart.
 cc_panes() {
@@ -204,6 +221,44 @@ if [ "$1" = --turns ]; then
 	exit $?
 fi
 
+# Everything the list decided about one row, and what it decided it from. The
+# row logic leans on a pile of hard-won heuristics — dead pid records, prefix
+# matching on session names, transcripts found by slug — and when one of them
+# misfires the row just looks wrong with no way to ask why.
+if [ "$1" = --explain ]; then
+	id=$2
+	sid=$(cc_sid "$id")
+	file=$(cc_file "$sid")
+	pane=${id##*.}
+	printf 'row\t%s\n' "$id"
+	printf 'session-id\t%s\n' "${sid:-<unresolved>}"
+	printf 'agent-state\t%s\n' "$(cc_state "$sid")"
+	printf 'transcript\t%s\n' "${file:-<none>}"
+	printf 'transcript-size\t%s\n' "$(wc -c < "$file" 2>/dev/null | tr -d ' ')"
+	printf 'cache\t%s\n' "$cache_dir/$sid"
+	printf 'directory\t%s\n' "$(cc_dir "$id")"
+	case "$id" in
+		resume:*) printf 'kind\tended transcript\n' ;;
+		*)
+			printf 'kind\tlive pane\n'
+			printf 'tmux-pane\t%s\n' "$(tmux display -pt "$pane" '#{session_name}:#{window_index}.#{pane_index}' 2>/dev/null)"
+			printf 'tmux-attached\t%s\n' "$(tmux display -pt "$pane" '#{session_attached}' 2>/dev/null)"
+			sess=${id#pane:}
+			printf 'session-panes\t%s\n' "$(cc_panes "${sess%%:*}" 2>/dev/null)"
+			;;
+	esac
+	# A case inside $( ) trips bash 3.2's paren counting — the reason every other
+	# one in this file carries a leading "(" — so decide it first, then print.
+	alive=no
+	case "$nl$live_ids$nl" in
+		(*"$nl$sid$nl"*) alive=yes ;;
+	esac
+	printf 'live\t%s\n' "$alive"
+	printf 'roots\t%s\n' "$roots"
+	printf 'purge-days\t%s\n' "$days"
+	exit 0
+fi
+
 rows=$(
 	# Panes, not sessions: a session split by cc-spawn holds two conversations,
 	# and each of them is separately resumable and separately killable.
@@ -239,7 +294,7 @@ rows=$(
 		recent=$stamp
 		[ "$last" -gt "$recent" ] 2>/dev/null && recent=$last
 		[ "$attached" = 0 ] && kind=0 || kind=1
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$path" "$((now - stamp))" "$((now - recent))" "$kind" "$text" "$mark"
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$id" "$path" "$((now - stamp))" "$((now - recent))" "$kind" "$text" "$mark" "$(cc_state "$(cc_sid "$id")")"
 	done
 
 	# Sessions you quit out of still have their transcript, so offer the recent
@@ -267,7 +322,7 @@ rows=$(
 		case "$nl$live_ids$nl" in (*"$nl$uuid$nl"*) continue ;; esac
 		msg=$(cc_last_message "resume:$uuid") || continue
 		stamp=${msg%%"$tab"*}
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" ''
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" '' ''
 		seen="$seen$uuid
 "
 		shown=$((shown + 1))
@@ -315,7 +370,7 @@ rows=$(
 		[ "$(printf '%s' "$dir" | tr 'A-Z' 'a-z')" = "$(printf '%s' "$cwd" | tr 'A-Z' 'a-z')" ] && continue
 		msg=$(cc_last_message "resume:$uuid") || continue
 		stamp=${msg%%"$tab"*}
-		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$dir" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" ''
+		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$dir" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}" '' ''
 		other=$((other + 1))
 	done
 )
@@ -350,7 +405,7 @@ case "$cwd" in
 	"$HOME"*) cwd_disp="~${cwd#"$HOME"}" ;;
 	*) cwd_disp="$cwd" ;;
 esac
-printf '__new__\t0\t+ %-24s %-6s %8s  %s\n' "$cwd_disp" '' '' 'start a new session here'
+printf '__new__\t0\t+   %-24s %-6s %8s  %s\n' "$cwd_disp" '' '' 'start a new session here'
 
 printf '%s\n' "$rows" |
 awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
@@ -377,8 +432,17 @@ awk -F"$tab" -v home="$HOME" -v cwd="$cwd" '
 		# legible in the row itself — dim for anything not free to attach,
 		# and a * for this directory.
 		state = ($5 == 1) ? "open" : (($5 == 2) ? "ended" : "")
-		row = sprintf("%s %-24s %-6s %8s  %s", (here ? " " : "*"), dir, state, ago($3), $6)
+		# What the agent is doing, as one dot. Only the states that mean
+		# something get one: everything idle would be a column of green.
+		glyph = " "
+		if ($8 == "blocked")      glyph = "\033[31m●\033[0m"
+		else if ($8 == "working") glyph = "\033[33m●\033[0m"
+		else if ($8 == "done")    glyph = "\033[34m●\033[0m"
+		row = sprintf("%-24s %-6s %8s  %s", dir, state, ago($3), $6)
+		# The glyph stays outside the dim wrapper: its own reset would end the
+		# dimming for the rest of the line.
 		if ($5 != 0) row = "\033[2m" row "\033[0m"
+		row = sprintf("%s %s %s", (here ? " " : "*"), glyph, row)
 		printf "%s\t%s\t%s\t%s\n", $3, $3, $1, row
 	}' |
 sort -t"$tab" -k1,1n -k2,2n |

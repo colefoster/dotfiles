@@ -41,7 +41,17 @@ case "$name" in
 		;;
 esac
 case "$dir" in "$HOME"*) dir="~${dir#"$HOME"}" ;; esac
-printf '%s\n%s\n' "${dir:-$name}" "$label"
+
+# What the agent is doing, when that is anything worth saying. An idle session
+# is the normal case and adds nothing to the line.
+st=$("$here/cc-state" get "$name" 2>/dev/null)
+case "$st" in
+	blocked) label="$label Â· [31mneeds input[0m" ;;
+	working) label="$label Â· [33mworking[0m" ;;
+	done)    label="$label Â· [34mfinished[0m" ;;
+esac
+
+printf '%s\n%b\n' "${dir:-$name}" "$label"
 
 "$here/cc-sessions" --turns "$name" "$turns" |
 while IFS='	' read -r stamp role text; do
