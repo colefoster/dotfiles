@@ -51,6 +51,10 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/session-time.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-state.sh idle"
           }
         ]
       }
@@ -61,6 +65,40 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/message-timestamp.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-state.sh working"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-state.sh done"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-state.sh blocked"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-state.sh ended"
           }
         ]
       }
