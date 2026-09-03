@@ -24,6 +24,7 @@
 : "${CC_WORK_LABEL:=Work}"
 set -e
 
+tab=$(printf '\t')
 dir=$PWD
 mode=pane
 split=-h
@@ -138,31 +139,37 @@ fi
 case $mode in
 	pane)
 		if [ -n "$size" ]; then
-			target=$(tmux split-window $split -d -l "$size" -P -F '#{session_name}:#{window_index}.#{pane_index}' \
+			target=$(tmux split-window $split -d -l "$size" -P -F "#{session_name}:#{window_index}.#{pane_index}${tab}#{pane_id}" \
 				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
 		else
-			target=$(tmux split-window $split -d -P -F '#{session_name}:#{window_index}.#{pane_index}' \
+			target=$(tmux split-window $split -d -P -F "#{session_name}:#{window_index}.#{pane_index}${tab}#{pane_id}" \
 				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
 		fi
+		pane=${target#*"$tab"}; target=${target%%"$tab"*}
 		if [ -n "$title" ]; then tmux select-pane -t "$target" -T "$title"; fi
 		if [ "$focus" = 1 ]; then tmux select-pane -t "$target"; fi
 		;;
 	window)
 		if [ -n "$title" ]; then
-			target=$(tmux new-window -d -P -F '#{session_name}:#{window_index}' -n "$title" \
+			target=$(tmux new-window -d -P -F "#{session_name}:#{window_index}${tab}#{pane_id}" -n "$title" \
 				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
 		else
-			target=$(tmux new-window -d -P -F '#{session_name}:#{window_index}' \
+			target=$(tmux new-window -d -P -F "#{session_name}:#{window_index}${tab}#{pane_id}" \
 				-c "$dir" -e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run")
 		fi
+		pane=${target#*"$tab"}; target=${target%%"$tab"*}
 		if [ "$focus" = 1 ]; then tmux select-window -t "$target"; fi
 		;;
 	session)
 		tmux new-session -d -s "$name" -c "$dir" \
 			-e "CLAUDE_CONFIG_DIR=$cfg" -e "CLAUDE_ACCOUNT_LABEL=$label" "$run"
 		target=$name
+		pane=$(tmux display -pt "=$name" '#{pane_id}' 2>/dev/null)
 		if [ "$focus" = 1 ]; then tmux switch-client -t "=$name"; fi
 		;;
 esac
 
-printf 'spawned %s at %s (%s)\nseed: %s\n' "$mode" "$target" "$dir" "$seed"
+# The pane id is the handle the caller waits on: a peer session is only useful
+# to hand work to if you can find out when it is finished with it.
+printf 'spawned %s at %s (%s)\nseed: %s\nwait: cc-state wait %s done\n' \
+	"$mode" "$target" "$dir" "$seed" "$pane"
