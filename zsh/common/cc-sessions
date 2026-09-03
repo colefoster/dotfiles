@@ -67,6 +67,15 @@ cc_file() {
 	printf '%s\n' "$index" | grep -m1 -- "/$1.jsonl"
 }
 
+# A row is either a live tmux session or a "resume:<uuid>" sentinel for a
+# transcript whose session has already ended.
+cc_sid() {
+	case "$1" in
+		resume:*) printf '%s\n' "${1#resume:}" ;;
+		*) printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }' ;;
+	esac
+}
+
 cc_last_message() {
 	sid=$(cc_sid "$1")
 	[ -n "$sid" ] || return 1
@@ -115,15 +124,6 @@ JQ_TURNS='fromjson?
 	| ($t | gsub("\\s+"; " ") | sub("^ +"; "") | sub(" +$"; "")) as $c
 	| select($c != "")
 	| "\(.timestamp | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)\t\(.type)\t\($c[0:400])"'
-
-# A row is either a live tmux session or a "resume:<uuid>" sentinel for a
-# transcript whose session has already ended.
-cc_sid() {
-	case "$1" in
-		resume:*) printf '%s\n' "${1#resume:}" ;;
-		*) printf '%s\n' "$map" | awk -F"$tab" -v n="$1" '$1 == n { print $2; exit }' ;;
-	esac
-}
 
 # Print the last N turns of one session, newest first.
 cc_turns() {
@@ -174,19 +174,27 @@ rows=$(
 	slug=$(printf '%s' "$cwd" | sed 's/[^a-zA-Z0-9]/-/g')
 	seen=
 	shown=0
+	# Both accounts can hold transcripts for one directory (a work dir used
+	# before the split still has personal ones). Capping root by root spent the
+	# whole budget on whoever came first, so a stale account's backlog hid
+	# today's sessions entirely: gather both, then sort the union by mtime.
+	here_scan=
 	for root in $roots; do
-		[ -d "$root/projects/$slug" ] || continue
-		for file in $(ls -t "$root/projects/$slug"/*.jsonl 2>/dev/null); do
-			[ "$shown" -lt "${CC_ENDED_MAX:-10}" ] || break
-			uuid=$(basename "$file" .jsonl)
-			printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
-			msg=$(cc_last_message "resume:$uuid") || continue
-			stamp=${msg%%"$tab"*}
-			printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
-			seen="$seen$uuid
-"
-			shown=$((shown + 1))
+		for f in "$root/projects/$slug"/*.jsonl; do
+			[ -f "$f" ] && here_scan="$here_scan $f"
 		done
+	done
+	[ -n "$here_scan" ] || here_scan=/nonexistent
+	for file in $(ls -t $here_scan 2>/dev/null); do
+		[ "$shown" -lt "${CC_ENDED_MAX:-10}" ] || break
+		uuid=$(basename "$file" .jsonl)
+		printf '%s\n' "$live_ids" | grep -qx -- "$uuid" && continue
+		msg=$(cc_last_message "resume:$uuid") || continue
+		stamp=${msg%%"$tab"*}
+		printf '%s\t%s\t%s\t%s\t%s\t%s\n' "resume:$uuid" "$cwd" "$((now - stamp))" "$((now - stamp))" 2 "${msg#*"$tab"}"
+		seen="$seen$uuid
+"
+		shown=$((shown + 1))
 	done
 
 	# Then the newest ended transcripts from everywhere else, so a conversation
