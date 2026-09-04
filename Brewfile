@@ -124,6 +124,9 @@ brew "libimobiledevice"
 brew "ideviceinstaller"
 # Lightweight and flexible command-line JSON processor
 brew "jq"
+# Notifications for the wrapped Claude sessions; cc-notify install-app clones
+# its app bundle to get an icon of our own.
+brew "terminal-notifier"
 # Assembler framework: Core + bindings
 brew "keystone"
 # Lazier way to manage everything docker
