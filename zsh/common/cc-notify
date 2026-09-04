@@ -1,0 +1,203 @@
+#!/bin/sh
+# The desktop notification for a session that wants you back, and everything
+# about it you might want to change.
+#
+#   cc-notify send <state> <dir> <pane> [elapsed-seconds]
+#   cc-notify install-app [ICON] [NAME]   build the bundle that owns the icon
+#   cc-notify test [state]                fire one, ignoring every suppression
+#
+# On the icon: macOS takes a notification's icon AND its name from the app
+# bundle that posted it, and offers no API to override either — this is why
+# terminal-notifier 3.x dropped -sender and -appIcon, and why anything routed
+# through osascript is stuck wearing Script Editor's icon. The only way to
+# choose them is to own a bundle, so `install-app` builds a tiny one whose
+# icon and name are yours. Everything posts through it once it exists.
+#
+# Config lives in ~/.claude/agent-state.conf (plain shell assignments); the
+# environment beats the file, so CC_NOTIFY=0 on a command line still wins.
+#
+#   CC_NOTIFY=0                     off entirely
+#   CC_NOTIFY_STATES="blocked done" which states are worth a banner
+#   CC_NOTIFY_SOUND=Glass           a macOS sound name; "" for silence
+#   CC_NOTIFY_MIN_SECS=0            skip turns shorter than this — a question
+#                                   answered in four seconds needs no banner
+#   CC_NOTIFY_APP="..."             bundle to post through
+#   CC_NOTIFY_TITLE                 title format; %d = directory, %s = state
+#   CC_NOTIFY_TEXT_DONE / _BLOCKED  the message for each state
+#   CC_NOTIFY_CMD                   your own notifier instead of all of the
+#                                   above, called: CMD <state> <title> <text>
+#                                   <pane> <dir>
+
+conf=${CC_NOTIFY_CONF:-$HOME/.claude/agent-state.conf}
+knobs="CC_NOTIFY CC_NOTIFY_STATES CC_NOTIFY_SOUND CC_NOTIFY_MIN_SECS CC_NOTIFY_APP
+CC_NOTIFY_TITLE CC_NOTIFY_TEXT_DONE CC_NOTIFY_TEXT_BLOCKED CC_NOTIFY_CMD CC_NOTIFY_APP_NAME"
+
+# The file is read for anything the environment has not already answered.
+if [ -f "$conf" ]; then
+	for v in $knobs; do eval "_pre_$v=\${$v-}"; done
+	. "$conf"
+	for v in $knobs; do eval "[ -n \"\$_pre_$v\" ] && $v=\$_pre_$v"; done
+fi
+
+: "${CC_NOTIFY:=1}"
+: "${CC_NOTIFY_STATES:=blocked done}"
+: "${CC_NOTIFY_SOUND=}"
+: "${CC_NOTIFY_MIN_SECS:=0}"
+: "${CC_NOTIFY_APP_NAME:=Claude Sessions}"
+: "${CC_NOTIFY_APP:=$HOME/Applications/$CC_NOTIFY_APP_NAME.app}"
+: "${CC_NOTIFY_TITLE:=claude · %d}"
+: "${CC_NOTIFY_TEXT_DONE:=finished}"
+: "${CC_NOTIFY_TEXT_BLOCKED:=waiting on you}"
+
+# ---------------------------------------------------------------- the bundle
+
+# A notification's icon and name come from the bundle that posted it, so a
+# custom one means a custom copy of an app. terminal-notifier is the app to
+# copy: give the copy its own bundle identifier and macOS treats it as its own
+# sender, with its own icon and its own entry in System Settings.
+#
+# This is terminal-notifier's own documented `make icon` recipe, done here so
+# it needs nothing but the brew install.
+install_app() {
+	icon=$1
+	name=${2:-$CC_NOTIFY_APP_NAME}
+	dest=$HOME/Applications/$name.app
+
+	bin=$(command -v terminal-notifier 2>/dev/null)
+	if [ -z "$bin" ]; then
+		echo "cc-notify: needs terminal-notifier — brew install terminal-notifier" >&2
+		return 1
+	fi
+	# /opt/homebrew/bin/terminal-notifier -> ../Cellar/<v>/bin/terminal-notifier,
+	# and the bundle to copy is that prefix's sibling.
+	while [ -L "$bin" ]; do
+		link=$(readlink "$bin")
+		case "$link" in
+			/*) bin=$link ;;
+			*) bin=$(cd "$(dirname "$bin")" && cd "$(dirname "$link")" && pwd)/$(basename "$link") ;;
+		esac
+	done
+	src=$(cd "$(dirname "$bin")/.." && pwd)/terminal-notifier.app
+	if [ ! -d "$src" ]; then
+		echo "cc-notify: no terminal-notifier.app beside $bin" >&2
+		return 1
+	fi
+
+	# Default to Claude's own icon: these notifications are about Claude.
+	[ -n "$icon" ] || icon=/Applications/Claude.app/Contents/Resources/electron.icns
+
+	mkdir -p "$HOME/Applications"
+	rm -rf "$dest"
+	cp -R "$src" "$dest" || return 1
+
+	plist=$dest/Contents/Info.plist
+	slug=$(printf '%s' "$name" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9-')
+	# The identifier is the whole trick: same binary, different sender.
+	/usr/libexec/PlistBuddy -c "set CFBundleIdentifier fr.julienxx.oss.terminal-notifier.$slug" "$plist" >/dev/null 2>&1
+	/usr/libexec/PlistBuddy -c "set CFBundleName $name" "$plist" >/dev/null 2>&1
+
+	case "$icon" in
+		*.icns) cp "$icon" "$dest/Contents/Resources/Terminal.icns" 2>/dev/null ;;
+		*)
+			# A single-size PNG looks wrong at every other size, so build the
+			# whole set the way iconutil wants it.
+			set_dir=$(mktemp -d)/icon.iconset
+			mkdir -p "$set_dir"
+			for sz in 16 32 128 256 512; do
+				sips -z $sz $sz "$icon" --out "$set_dir/icon_${sz}x${sz}.png" >/dev/null 2>&1
+				sips -z $((sz * 2)) $((sz * 2)) "$icon" --out "$set_dir/icon_${sz}x${sz}@2x.png" >/dev/null 2>&1
+			done
+			iconutil -c icns "$set_dir" -o "$dest/Contents/Resources/Terminal.icns" >/dev/null 2>&1 ||
+				echo "cc-notify: could not convert $icon — the copy keeps the default icon" >&2
+			rm -rf "$(dirname "$set_dir")" ;;
+	esac
+
+	# Copying breaks the original signature, and an unsigned bundle cannot hold
+	# a notification permission.
+	codesign --force --deep -s - "$dest" >/dev/null 2>&1
+	touch "$dest"
+	printf '%s\n' "$dest"
+	echo "cc-notify: macOS will ask once — allow notifications for \"$name\"" >&2
+}
+
+# ---------------------------------------------------------------- sending
+
+# In preference order: your own command, the bundle you own (the only one that
+# can carry your icon), terminal-notifier, and finally osascript — which always
+# looks like Script Editor, but is always there.
+# Nothing here may block. This runs from a Stop hook, and the first call into a
+# freshly built bundle sits there waiting on the notification-permission prompt
+# — which would hang the turn that triggered it. Detach, and shoot it if it is
+# still there in ten seconds.
+detach() {
+	( "$@" >/dev/null 2>&1 &
+	  p=$!
+	  ( sleep 10; kill "$p" 2>/dev/null ) >/dev/null 2>&1 &
+	) >/dev/null 2>&1
+}
+
+deliver() { # <state> <title> <text>
+	if [ -n "${CC_NOTIFY_CMD:-}" ]; then
+		detach $CC_NOTIFY_CMD "$1" "$2" "$3" "$pane" "$dir"
+		return
+	fi
+	# The copy is a terminal-notifier, so drive it as one — calling the binary
+	# inside the bundle is what makes the bundle the sender.
+	tn=
+	[ -x "$CC_NOTIFY_APP/Contents/MacOS/terminal-notifier" ] &&
+		tn="$CC_NOTIFY_APP/Contents/MacOS/terminal-notifier"
+	[ -n "$tn" ] || tn=$(command -v terminal-notifier 2>/dev/null)
+	if [ -n "$tn" ]; then
+		set -- -title "$2" -message "$3" -group "cc-$pane"
+		[ -n "$CC_NOTIFY_SOUND" ] && set -- "$@" -sound "$CC_NOTIFY_SOUND"
+		detach "$tn" "$@"
+		return
+	fi
+	if command -v osascript >/dev/null 2>&1; then
+		# Quotes and backslashes would end the AppleScript string early. The
+		# strings are ours; the directory name in them is not.
+		t=$(printf '%s' "$2" | tr -d '"\\')
+		m=$(printf '%s' "$3" | tr -d '"\\')
+		if [ -n "$CC_NOTIFY_SOUND" ]; then
+			detach osascript -e "display notification \"$m\" with title \"$t\" sound name \"$CC_NOTIFY_SOUND\""
+		else
+			detach osascript -e "display notification \"$m\" with title \"$t\""
+		fi
+	fi
+}
+
+send() { # <state> <dir> <pane> [elapsed] [--force]
+	state=$1
+	dir=$2
+	pane=$3
+	elapsed=${4:-0}
+	force=$5
+
+	if [ "$force" != --force ]; then
+		[ "$CC_NOTIFY" = 1 ] || return 0
+		case " $CC_NOTIFY_STATES " in
+			*" $state "*) ;;
+			*) return 0 ;;
+		esac
+		# A turn that took four seconds was one you watched happen.
+		[ "$elapsed" -ge "$CC_NOTIFY_MIN_SECS" ] 2>/dev/null || return 0
+	fi
+
+	name=${dir##*/}
+	[ -n "$name" ] || name=claude
+	title=$(printf '%s' "$CC_NOTIFY_TITLE" | sed -e "s|%d|$name|g" -e "s|%s|$state|g")
+	case "$state" in
+		blocked) text=$CC_NOTIFY_TEXT_BLOCKED ;;
+		done)    text=$CC_NOTIFY_TEXT_DONE ;;
+		*)       text=$state ;;
+	esac
+	deliver "$state" "$title" "$text"
+}
+
+case ${1-} in
+	send)        shift; send "$@" ;;
+	install-app) shift; install_app "$@" ;;
+	test)        shift; send "${1:-done}" "${PWD}" "${TMUX_PANE:-none}" 999999 --force ;;
+	config)      for v in $knobs; do eval "printf '%s=%s\\n' $v \"\$$v\""; done ;;
+	*) echo "usage: cc-notify send <state> <dir> <pane> [elapsed] | install-app [ICON] [NAME] | test | config" >&2; exit 1 ;;
+esac

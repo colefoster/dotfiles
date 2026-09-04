@@ -71,6 +71,7 @@ _CC_PREVIEW=${0:A:h}/cc-preview
 _CC_KILL=${0:A:h}/cc-kill
 _CC_LAYOUT=${0:A:h}/cc-layout
 _CC_STATE=${0:A:h}/cc-state
+_CC_NOTIFY=${0:A:h}/cc-notify
 
 # Picker shown when `claude` runs bare: choose a detached session to resume, or
 # start a fresh one. Prints the chosen session name or __new__; returns 1 when
@@ -325,3 +326,11 @@ ccl() {
 #   ccwait <pane|session> done  block until it finishes (2 = it needs input)
 ccstate() { ${_CC_STATE} "$@" }
 ccwait()  { ${_CC_STATE} wait "$@" }
+
+# Notifications: what they say, what they sound like, and — via a bundle built
+# for the purpose — what icon they wear.
+#
+#   ccnotify install-app [ICON] [NAME]   own the icon and the sender name
+#   ccnotify test [state]                fire one now
+#   ccnotify config                      what every knob currently resolves to
+ccnotify() { ${_CC_NOTIFY} "$@" }

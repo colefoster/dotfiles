@@ -1,0 +1,25 @@
+# Notifications for the wrapped Claude sessions. Copy to ~/.claude/agent-state.conf
+# and edit; the environment beats anything set here, so CC_NOTIFY=0 on a command
+# line still wins.
+#
+# The icon and the app name on a notification come from the bundle that posted
+# it, and macOS offers no way to override either per notification. To choose
+# them, own a bundle:
+#
+#   cc-notify install-app                    Claude's icon, named "Claude Sessions"
+#   cc-notify install-app ~/icon.png "Herd"  your icon, your name
+#
+# Then allow notifications for that name in System Settings > Notifications.
+
+# CC_NOTIFY=0                        # off entirely
+# CC_NOTIFY_STATES="blocked done"    # which states are worth interrupting you
+# CC_NOTIFY_SOUND=Glass              # a name from /System/Library/Sounds
+# CC_NOTIFY_MIN_SECS=30              # skip turns shorter than this
+# CC_NOTIFY_APP_NAME="Claude Sessions"
+# CC_NOTIFY_TITLE="claude · %d"      # %d = directory, %s = state
+# CC_NOTIFY_TEXT_DONE="finished"
+# CC_NOTIFY_TEXT_BLOCKED="waiting on you"
+
+# Your own notifier instead of all of the above. Called as:
+#   CMD <state> <title> <text> <pane> <directory>
+# CC_NOTIFY_CMD="$HOME/bin/my-notifier"

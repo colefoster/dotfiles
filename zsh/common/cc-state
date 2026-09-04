@@ -26,6 +26,7 @@
 state_dir=${CC_STATE_DIR:-$HOME/.claude/agent-state}
 roots="$HOME/.claude $CC_WORK_CONFIG"
 tab=$(printf '\t')
+here=$(cd "$(dirname "$0")" && pwd -P)
 now() { date +%s; }
 
 usage() {
@@ -93,9 +94,9 @@ write_state() { # <sid> <state>
 
 # A desktop notification for the states that mean "come back here" — but only
 # when you are not already looking at the pane. Notifying about the session
-# filling the screen in front of you is pure noise.
-notify() { # <sid> <state>
-	[ "${CC_NOTIFY:-1}" = 1 ] || return 0
+# filling the screen in front of you is pure noise. Everything about how the
+# notification looks lives in cc-notify.
+notify() { # <sid> <state> <since-epoch>
 	rec=$(records | awk -F"$tab" -v s="$1" '$1 == s { print; exit }')
 	[ -n "$rec" ] || return 0
 	rest=${rec#*"$tab"}
@@ -107,20 +108,12 @@ notify() { # <sid> <state>
 	seen_now=$(tmux display -pt "$pane" '#{&&:#{pane_active},#{session_attached}}' 2>/dev/null)
 	[ "$seen_now" = 1 ] && return 0
 
-	title=${dir##*/}
-	[ -n "$title" ] || title=claude
-	case "$2" in
-		blocked) msg="waiting on you" ;;
-		*) msg="finished" ;;
-	esac
-	if command -v terminal-notifier >/dev/null 2>&1; then
-		terminal-notifier -title "$title" -message "$msg" -group "cc-$1" >/dev/null 2>&1
-	elif command -v osascript >/dev/null 2>&1; then
-		# Quotes and backslashes would end the AppleScript string early; the
-		# strings here are ours, but the directory name is not.
-		safe=$(printf '%s' "$title" | tr -d '"\\')
-		osascript -e "display notification \"$msg\" with title \"claude · $safe\"" >/dev/null 2>&1
-	fi
+	# How long the session spent in the state it is leaving, so a four-second
+	# turn can be left alone.
+	elapsed=0
+	[ -n "$3" ] && elapsed=$(( $(now) - $3 ))
+
+	"$here/cc-notify" send "$2" "$dir" "$pane" "$elapsed"
 	return 0
 }
 
@@ -149,8 +142,11 @@ cmd_hook() { # <state>
 			: ;;
 	esac
 
+	# Read before writing: the stamp on the file is when the state we are
+	# leaving began.
+	since=$(cut -f2 "$state_dir/$sid" 2>/dev/null)
 	write_state "$sid" "$want"
-	case "$want" in blocked|done) notify "$sid" "$want" ;; esac
+	case "$want" in blocked|done) notify "$sid" "$want" "$since" ;; esac
 	exit 0
 }
 
@@ -163,9 +159,11 @@ cmd_summary() {
 	blocked=$1 working=$2 finished=$3
 	out=
 	if [ "$fmt" = --tmux ]; then
-		[ "$blocked" -gt 0 ] && out="$out#[fg=red]● $blocked#[default] "
-		[ "$working" -gt 0 ] && out="$out#[fg=yellow]● $working#[default] "
-		[ "$finished" -gt 0 ] && out="$out#[fg=blue]● $finished#[default] "
+		# Bright variants, and the background comes from the caller's segment:
+		# #[default] would drop back to the status bar's own colours mid-string.
+		[ "$blocked" -gt 0 ] && out="$out#[fg=colour203,bold]● $blocked#[nobold] "
+		[ "$working" -gt 0 ] && out="$out#[fg=colour221,bold]● $working#[nobold] "
+		[ "$finished" -gt 0 ] && out="$out#[fg=colour111,bold]● $finished#[nobold] "
 	else
 		[ "$blocked" -gt 0 ] && out="$out$blocked blocked  "
 		[ "$working" -gt 0 ] && out="$out$working working  "
